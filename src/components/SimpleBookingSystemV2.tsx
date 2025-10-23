@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Quadra, Booking } from '../types';
 import { storageService } from '../services/storage';
 import { useAuth } from '../contexts/AuthContext';
-import { Clock, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
+import PaymentQRCode from './PaymentQRCode';
 
 interface SimpleBookingSystemV2Props {
   quadraId: string;
@@ -19,6 +20,8 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
   const [selectedDuration, setSelectedDuration] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [showPayment, setShowPayment] = useState(false);
+  const [bookingData, setBookingData] = useState<Booking | null>(null);
 
   const durationOptions = [
     { value: 1, label: '1 hora', price: quadraPrice },
@@ -135,7 +138,12 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
   };
 
   const handleBooking = () => {
-    if (!selectedDate || !selectedStartTime || !selectedDuration || !user) return;
+    if (!selectedDate || !selectedStartTime || !selectedDuration) return;
+    
+    if (!user) {
+      alert('Você precisa fazer login para fazer uma reserva. Clique em "Entrar" no menu superior.');
+      return;
+    }
 
     const endTime = calculateEndTime(selectedStartTime, selectedDuration);
 
@@ -158,6 +166,7 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
       return;
     }
 
+    // Criar dados da reserva (ainda não salvar)
     const booking: Booking = {
       id: Date.now().toString(),
       quadraId,
@@ -172,9 +181,22 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
       updatedAt: new Date().toISOString()
     };
 
-    // Salvar reserva
+    setBookingData(booking);
+    setShowPayment(true);
+  };
+
+  const handlePaymentConfirmed = () => {
+    if (!bookingData) return;
+
+    // Salvar reserva como confirmada após pagamento
+    const confirmedBooking = {
+      ...bookingData,
+      status: 'confirmed' as const,
+      updatedAt: new Date().toISOString()
+    };
+
     const allBookings = storageService.getBookings();
-    const updatedBookings = [...allBookings, booking];
+    const updatedBookings = [...allBookings, confirmedBooking];
     storageService.saveBookings(updatedBookings);
 
     // Limpar formulário
@@ -182,8 +204,10 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
     setSelectedStartTime('');
     setSelectedDuration(1);
     setTotalPrice(0);
+    setBookingData(null);
+    setShowPayment(false);
 
-    alert('Reserva realizada com sucesso! Aguarde confirmação do administrador.');
+    alert('Reserva confirmada com sucesso! Pagamento aprovado.');
   };
 
   const formatDate = (dateString: string) => {
@@ -232,6 +256,26 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <h2 className="text-xl font-bold mb-4">Reservar Horário - {quadraName}</h2>
+      
+      {!user && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+            <div>
+              <p className="text-yellow-800 font-medium">Login necessário</p>
+              <p className="text-yellow-700 text-sm">
+                Você precisa fazer login para fazer uma reserva. 
+                <button 
+                  onClick={() => window.location.href = '/login'}
+                  className="text-yellow-600 hover:text-yellow-800 underline ml-1"
+                >
+                  Clique aqui para entrar
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="space-y-6">
         {/* Seleção de Data */}
@@ -349,10 +393,15 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
             </div>
             <button
               onClick={handleBooking}
-              className="w-full mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center justify-center"
+              disabled={!user}
+              className={`w-full mt-4 px-4 py-2 rounded flex items-center justify-center ${
+                user 
+                  ? 'bg-green-500 text-white hover:bg-green-600' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
             >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Confirmar Reserva
+              <CreditCard className="h-4 w-4 mr-2" />
+              {user ? 'Pagar com PIX' : 'Login Necessário'}
             </button>
           </div>
         )}
@@ -364,6 +413,21 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
           </div>
         )}
       </div>
+
+      {/* Modal de Pagamento PIX */}
+      {showPayment && bookingData && (
+        <PaymentQRCode
+          isOpen={showPayment}
+          onClose={() => {
+            setShowPayment(false);
+            setBookingData(null);
+          }}
+          totalPrice={bookingData.totalPrice}
+          quadraName={quadraName}
+          userName={bookingData.userName}
+          onPaymentConfirmed={handlePaymentConfirmed}
+        />
+      )}
     </div>
   );
 };

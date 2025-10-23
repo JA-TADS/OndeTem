@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Header from './components/Header';
 import Login from './components/Login';
+import Register from './components/Register';
 import MapView from './components/MapView';
 import QuadraDetail from './components/QuadraDetail';
 import AdminPanel from './components/AdminPanel';
@@ -14,10 +15,11 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {user && <Header />}
-      <div className={user ? 'pt-0' : ''}>
+      <Header />
+      <div className="pt-16">
         <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route
           path="/"
           element={
@@ -37,7 +39,7 @@ const AppContent: React.FC = () => {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute requireAuth requireAdmin>
               <AdminPanel />
             </ProtectedRoute>
           }
@@ -45,7 +47,7 @@ const AppContent: React.FC = () => {
         <Route
           path="/profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAuth>
               <ProfilePage />
             </ProtectedRoute>
           }

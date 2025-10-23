@@ -5,6 +5,7 @@ import { storageService } from '../services/storage';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, role: 'user' | 'admin') => Promise<boolean>;
   logout: () => void;
   updateUser: (updatedUser: User) => void;
   isAdmin: boolean;
@@ -47,9 +48,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
+  const register = async (name: string, email: string, password: string, role: 'user' | 'admin'): Promise<boolean> => {
+    const users = storageService.getUsers();
+    
+    // Verificar se email já existe
+    if (users.find(u => u.email === email)) {
+      return false;
+    }
+
+    const newUser: User = {
+      id: Date.now().toString(),
+      name,
+      email,
+      role,
+      avatar: undefined
+    };
+
+    const updatedUsers = [...users, newUser];
+    storageService.saveUsers(updatedUsers);
+    
+    setUser(newUser);
+    storageService.setCurrentUser(newUser);
+    return true;
+  };
+
   const logout = () => {
     setUser(null);
     storageService.setCurrentUser(null);
+    // Redirecionar para o mapa após logout
+    window.location.href = '/';
   };
 
   const updateUser = (updatedUser: User) => {
@@ -60,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = user?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser, isAdmin, loading }}>
       {children}
     </AuthContext.Provider>
   );

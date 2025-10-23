@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -25,6 +26,15 @@ const Login: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
         <div>
+          <div className="flex items-center justify-center mb-4">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Voltar ao Mapa
+            </button>
+          </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
             OndeTem
           </h2>

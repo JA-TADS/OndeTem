@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Quadra } from '../types';
 import { storageService } from '../services/storage';
+import { useAuth } from '../contexts/AuthContext';
 import { Plus, Edit, Trash2, Eye, EyeOff, MapPin, ArrowLeft, Camera, X, Clock, MessageCircle, Calendar } from 'lucide-react';
 import MapLocationPicker from './MapLocationPicker';
 import ChatSystem from './ChatSystem';
@@ -11,6 +12,7 @@ import AdminReservationsManager from './AdminReservationsManager';
 
 const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quadras, setQuadras] = useState<Quadra[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingQuadra, setEditingQuadra] = useState<Quadra | null>(null);
@@ -41,11 +43,13 @@ const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     loadQuadras();
-  }, []);
+  }, [user?.id]);
 
   const loadQuadras = () => {
     const allQuadras = storageService.getQuadras();
-    setQuadras(allQuadras);
+    // Filtrar apenas quadras do admin logado
+    const userQuadras = allQuadras.filter(quadra => quadra.ownerId === user?.id);
+    setQuadras(userQuadras);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -65,7 +69,7 @@ const AdminPanel: React.FC = () => {
       rating: editingQuadra?.rating || 0,
       reviews: editingQuadra?.reviews || [],
       amenities: formData.amenities.split(',').map(a => a.trim()).filter(a => a),
-      ownerId: '1', // Admin ID
+      ownerId: user?.id || '1', // ID do admin logado
       isActive: formData.isActive,
       createdAt: editingQuadra?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -81,7 +85,8 @@ const AdminPanel: React.FC = () => {
     }
 
     storageService.saveQuadras(updatedQuadras);
-    setQuadras(updatedQuadras);
+    // Recarregar apenas as quadras do admin logado
+    loadQuadras();
     resetForm();
   };
 
@@ -118,18 +123,22 @@ const AdminPanel: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta quadra?')) {
-      const updatedQuadras = quadras.filter(q => q.id !== id);
+      const allQuadras = storageService.getQuadras();
+      const updatedQuadras = allQuadras.filter(q => q.id !== id);
       storageService.saveQuadras(updatedQuadras);
-      setQuadras(updatedQuadras);
+      // Recarregar apenas as quadras do admin logado
+      loadQuadras();
     }
   };
 
   const toggleActive = (id: string) => {
-    const updatedQuadras = quadras.map(q => 
+    const allQuadras = storageService.getQuadras();
+    const updatedQuadras = allQuadras.map(q => 
       q.id === id ? { ...q, isActive: !q.isActive } : q
     );
     storageService.saveQuadras(updatedQuadras);
-    setQuadras(updatedQuadras);
+    // Recarregar apenas as quadras do admin logado
+    loadQuadras();
   };
 
   const handleLocationSelect = (lat: number, lng: number) => {
@@ -171,9 +180,9 @@ const AdminPanel: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/')}
@@ -435,7 +444,12 @@ const AdminPanel: React.FC = () => {
             {/* Lista de quadras */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
               <div className="px-6 py-4 border-b">
-                <h2 className="text-xl font-bold">Quadras ({quadras.length})</h2>
+                <h2 className="text-xl font-bold">Suas Quadras ({quadras.length})</h2>
+                {quadras.length === 0 && (
+                  <p className="text-gray-600 text-sm mt-1">
+                    Você ainda não possui quadras cadastradas. Clique em "Nova Quadra" para começar.
+                  </p>
+                )}
               </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -459,7 +473,20 @@ const AdminPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {quadras.map((quadra) => (
+                {quadras.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                          <Plus className="h-6 w-6 text-gray-400" />
+                        </div>
+                        <p className="text-sm">Nenhuma quadra cadastrada</p>
+                        <p className="text-xs text-gray-400">Clique em "Nova Quadra" para começar</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  quadras.map((quadra) => (
                   <tr key={quadra.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{quadra.name}</div>
@@ -513,7 +540,8 @@ const AdminPanel: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

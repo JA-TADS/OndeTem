@@ -74,6 +74,7 @@ export interface Chat {
   userName: string;
   adminId: string;
   adminName: string;
+  quadraId?: string;
   messages: ChatMessage[];
   lastMessage: string;
   lastMessageTime: string;

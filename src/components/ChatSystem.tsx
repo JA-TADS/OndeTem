@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Chat, ChatMessage } from '../types';
 import { storageService } from '../services/storage';
 import { useAuth } from '../contexts/AuthContext';
-import { MessageCircle, Send, User, Shield } from 'lucide-react';
+import { MessageCircle, Send, User, Shield, Trash2 } from 'lucide-react';
 
 interface ChatSystemProps {
   isAdmin?: boolean;
+  quadraId?: string;
 }
 
-const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
+const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false, quadraId }) => {
   const { user } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -18,7 +19,7 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
 
   useEffect(() => {
     loadChats();
-  }, []);
+  }, [user?.id, quadraId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -27,10 +28,19 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
   const loadChats = () => {
     const allChats = storageService.getChats();
     if (isAdmin) {
-      setChats(allChats);
+      // Para admin, mostrar apenas chats onde ele é o adminId
+      const adminChats = allChats.filter(chat => chat.adminId === user?.id);
+      setChats(adminChats);
     } else {
-      const userChat = allChats.find(chat => chat.userId === user?.id);
-      setChats(userChat ? [userChat] : []);
+      // Para usuário, filtrar por quadra se especificada
+      let userChats = allChats.filter(chat => chat.userId === user?.id);
+      
+      if (quadraId) {
+        // Filtrar apenas chats da quadra específica
+        userChats = userChats.filter(chat => chat.quadraId === quadraId);
+      }
+      
+      setChats(userChats);
     }
   };
 
@@ -41,19 +51,50 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
   const startNewChat = () => {
     if (!user) return;
 
-    const existingChat = storageService.getChatByUserId(user.id);
-    if (existingChat) {
-      setSelectedChat(existingChat);
-      setShowChatList(false);
-      return;
+    // Se tem quadraId, verificar se já existe chat para essa quadra
+    if (quadraId) {
+      const existingChat = storageService.getChats().find(chat => 
+        chat.userId === user.id && chat.quadraId === quadraId
+      );
+      if (existingChat) {
+        setSelectedChat(existingChat);
+        setShowChatList(false);
+        return;
+      }
+    } else {
+      // Se não tem quadraId, usar lógica antiga
+      const existingChat = storageService.getChatByUserId(user.id);
+      if (existingChat) {
+        setSelectedChat(existingChat);
+        setShowChatList(false);
+        return;
+      }
+    }
+
+    // Encontrar o admin da quadra se quadraId foi especificado
+    let adminId = '1';
+    let adminName = 'Admin';
+    
+    if (quadraId) {
+      const quadra = storageService.getQuadraById(quadraId);
+      if (quadra) {
+        adminId = quadra.ownerId;
+        // Buscar nome do admin
+        const users = storageService.getUsers();
+        const admin = users.find(u => u.id === quadra.ownerId);
+        if (admin) {
+          adminName = admin.name;
+        }
+      }
     }
 
     const newChat: Chat = {
       id: Date.now().toString(),
       userId: user.id,
       userName: user.name,
-      adminId: '1',
-      adminName: 'Admin',
+      adminId: adminId,
+      adminName: adminName,
+      quadraId: quadraId,
       messages: [],
       lastMessage: '',
       lastMessageTime: new Date().toISOString(),
@@ -65,7 +106,8 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
     const updatedChats = [...allChats, newChat];
     storageService.saveChats(updatedChats);
     
-    setChats([newChat]);
+    // Recarregar chats para manter filtros corretos
+    loadChats();
     setSelectedChat(newChat);
     setShowChatList(false);
   };
@@ -87,7 +129,12 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
       ...selectedChat,
       messages: [...selectedChat.messages, message],
       lastMessage: message.message,
-      lastMessageTime: message.timestamp
+      lastMessageTime: message.timestamp,
+      // Se for um admin respondendo, atualizar o adminId
+      ...(isAdmin && {
+        adminId: user.id,
+        adminName: user.name
+      })
     };
 
     const allChats = storageService.getChats();
@@ -97,7 +144,8 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
     storageService.saveChats(updatedChats);
 
     setSelectedChat(updatedChat);
-    setChats(updatedChats);
+    // Recarregar chats para manter filtros corretos
+    loadChats();
     setNewMessage('');
   };
 
@@ -112,6 +160,22 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
     return new Date(timestamp).toLocaleDateString('pt-BR');
   };
 
+  const handleDeleteChat = (chatId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.')) {
+      const allChats = storageService.getChats();
+      const updatedChats = allChats.filter(chat => chat.id !== chatId);
+      storageService.saveChats(updatedChats);
+      
+      // Recarregar chats
+      loadChats();
+      
+      // Se o chat deletado estava selecionado, limpar seleção
+      if (selectedChat?.id === chatId) {
+        setSelectedChat(null);
+      }
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md">
       {/* Header */}
@@ -121,14 +185,26 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
             <MessageCircle className="h-5 w-5 mr-2" />
             {isAdmin ? 'Chat com Usuários' : 'Chat com Admin'}
           </h2>
-          {!isAdmin && (
-            <button
-              onClick={startNewChat}
-              className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-            >
-              Novo Chat
-            </button>
-          )}
+          <div className="flex items-center space-x-2">
+            {selectedChat && (
+              <button
+                onClick={() => handleDeleteChat(selectedChat.id)}
+                className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 flex items-center"
+                title="Excluir conversa"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Excluir
+              </button>
+            )}
+            {!isAdmin && (
+              <button
+                onClick={startNewChat}
+                className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+              >
+                Novo Chat
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -142,17 +218,33 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false }) => {
                 {chats.map((chat) => (
                   <div
                     key={chat.id}
-                    onClick={() => setSelectedChat(chat)}
                     className={`p-3 rounded cursor-pointer ${
                       selectedChat?.id === chat.id ? 'bg-blue-100' : 'hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2" />
-                      <span className="font-medium">{chat.userName}</span>
+                    <div 
+                      onClick={() => setSelectedChat(chat)}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex items-center flex-1">
+                        <User className="h-4 w-4 mr-2" />
+                        <span className="font-medium">{chat.userName}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChat(chat.id);
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                        title="Excluir conversa"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
-                    <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
-                    <p className="text-xs text-gray-500">{formatTime(chat.lastMessageTime)}</p>
+                    <div onClick={() => setSelectedChat(chat)}>
+                      <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
+                      <p className="text-xs text-gray-500">{formatTime(chat.lastMessageTime)}</p>
+                    </div>
                   </div>
                 ))}
               </div>

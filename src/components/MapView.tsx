@@ -25,10 +25,15 @@ const MapView: React.FC = () => {
   const [userLocation, setUserLocation] = useState<[number, number]>([-23.5505, -46.6333]);
   const [mapKey, setMapKey] = useState(0);
 
-  useEffect(() => {
-    // Carregar quadras
+  const loadActiveQuadras = () => {
+    // Carregar apenas quadras ativas
     const allQuadras = storageService.getQuadras();
-    setQuadras(allQuadras);
+    const activeQuadras = allQuadras.filter(quadra => quadra.isActive);
+    setQuadras(activeQuadras);
+  };
+
+  useEffect(() => {
+    loadActiveQuadras();
 
     // Obter localização do usuário
     if (navigator.geolocation) {
@@ -49,6 +54,16 @@ const MapView: React.FC = () => {
       // Forçar atualização mesmo sem geolocalização
       setMapKey(prev => prev + 1);
     }
+  }, []);
+
+  // Recarregar quadras quando a página ganha foco (volta de admin)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadActiveQuadras();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
 
@@ -90,7 +105,7 @@ const MapView: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full relative pt-16">
+    <div className="h-screen w-full relative">
       <MapContainer
         key={mapKey}
         center={userLocation}
@@ -119,7 +134,7 @@ const MapView: React.FC = () => {
           </Popup>
         </Marker>
 
-        {/* Marcadores das quadras */}
+        {/* Marcadores das quadras ativas */}
         {quadras.map((quadra) => (
           <Marker
             key={quadra.id}

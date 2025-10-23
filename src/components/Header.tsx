@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Settings, User } from 'lucide-react';
+import { MapPin, Settings, User, LogIn, UserPlus } from 'lucide-react';
 
 const Header: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -21,7 +21,7 @@ const Header: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {user && (
+            {user ? (
               <>
                 <span className="text-gray-700">Olá, {user.name}</span>
                 
@@ -51,6 +51,23 @@ const Header: React.FC = () => {
                     Admin
                   </button>
                 )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="flex items-center text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100"
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Entrar
+                </button>
+                <button
+                  onClick={() => navigate('/register')}
+                  className="flex items-center bg-blue-500 text-white px-3 py-2 rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Cadastrar
+                </button>
               </>
             )}
           </div>

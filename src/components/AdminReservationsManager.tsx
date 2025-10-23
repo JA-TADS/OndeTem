@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, Quadra } from '../types';
 import { storageService } from '../services/storage';
+import { useAuth } from '../contexts/AuthContext';
 import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Filter } from 'lucide-react';
 
 const AdminReservationsManager: React.FC = () => {
+  const { user } = useAuth();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -12,7 +14,7 @@ const AdminReservationsManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     filterBookings();
@@ -20,12 +22,21 @@ const AdminReservationsManager: React.FC = () => {
 
   const loadData = () => {
     try {
-      const bookings = storageService.getBookings();
-      const quadrasData = storageService.getQuadras();
+      const allBookings = storageService.getBookings();
+      const allQuadras = storageService.getQuadras();
       
-      setAllBookings(bookings);
-      setQuadras(quadrasData);
-      console.log('Dados carregados:', { bookings, quadras: quadrasData });
+      // Filtrar apenas quadras do admin logado
+      const userQuadras = allQuadras.filter(quadra => quadra.ownerId === user?.id);
+      
+      // Filtrar reservas apenas das quadras do admin
+      const userQuadraIds = userQuadras.map(q => q.id);
+      const userBookings = allBookings.filter(booking => 
+        userQuadraIds.includes(booking.quadraId)
+      );
+      
+      setAllBookings(userBookings);
+      setQuadras(userQuadras);
+      console.log('Dados carregados:', { bookings: userBookings, quadras: userQuadras });
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     }
@@ -50,6 +61,7 @@ const AdminReservationsManager: React.FC = () => {
 
   const handleStatusChange = (bookingId: string, newStatus: 'confirmed' | 'cancelled') => {
     try {
+      const allBookings = storageService.getBookings();
       const updatedBookings = allBookings.map(booking => 
         booking.id === bookingId 
           ? { ...booking, status: newStatus, updatedAt: new Date().toISOString() }
@@ -57,7 +69,8 @@ const AdminReservationsManager: React.FC = () => {
       );
 
       storageService.saveBookings(updatedBookings);
-      setAllBookings(updatedBookings);
+      // Recarregar dados para manter filtros corretos
+      loadData();
       
       const statusText = newStatus === 'confirmed' ? 'confirmada' : 'cancelada';
       alert(`Reserva ${statusText} com sucesso!`);

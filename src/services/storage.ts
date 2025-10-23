@@ -107,7 +107,7 @@ class StorageService {
       const initialUsers: User[] = [
         {
           id: '1',
-          name: 'Admin',
+          name: 'Admin Principal',
           email: 'admin@ondetem.com',
           role: 'admin'
         },

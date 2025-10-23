@@ -5,9 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireAuth?: boolean;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
+  children, 
+  requireAdmin = false, 
+  requireAuth = false 
+}) => {
   const { user, isAdmin, loading } = useAuth();
 
   if (loading) {
@@ -21,10 +26,17 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
     );
   }
 
+  // Se não requer autenticação, sempre permite acesso
+  if (!requireAuth) {
+    return <>{children}</>;
+  }
+
+  // Se requer autenticação mas usuário não está logado
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  // Se requer admin mas usuário não é admin
   if (requireAdmin && !isAdmin) {
     return <Navigate to="/" replace />;
   }
