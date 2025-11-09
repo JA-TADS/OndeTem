@@ -1,61 +1,85 @@
 import { User, Quadra, Review, Booking, Chat } from '../types';
+import { firebaseService } from './firebase';
 
 class StorageService {
-  private getItem<T>(key: string): T | null {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private setItem<T>(key: string, value: T): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.error('Erro ao salvar no localStorage:', error);
-    }
-  }
+  // Cache local para melhor performance
+  private cache: {
+    users?: User[];
+    quadras?: Quadra[];
+    reviews?: Review[];
+    bookings?: Booking[];
+    chats?: Chat[];
+  } = {};
 
   // Usuários
-  getUsers(): User[] {
-    return this.getItem<User[]>('users') || [];
+  async getUsers(): Promise<User[]> {
+    if (this.cache.users) {
+      return this.cache.users;
+    }
+    this.cache.users = await firebaseService.getUsers();
+    return this.cache.users;
   }
 
-  saveUsers(users: User[]): void {
-    this.setItem('users', users);
+  async saveUsers(users: User[]): Promise<void> {
+    this.cache.users = users;
+    // Salvar cada usuário no Firebase
+    for (const user of users) {
+      await firebaseService.updateUser(user.id, user);
+    }
   }
 
   getCurrentUser(): User | null {
-    return this.getItem<User>('currentUser');
+    // Este método não é mais usado, pois o AuthContext gerencia o usuário atual
+    // Mantido para compatibilidade
+    return null;
   }
 
-  setCurrentUser(user: User | null): void {
-    this.setItem('currentUser', user);
+  setCurrentUser(_user: User | null): void {
+    // Este método não é mais usado, pois o AuthContext gerencia o usuário atual
+    // Mantido para compatibilidade
   }
 
   // Quadras
-  getQuadras(): Quadra[] {
-    return this.getItem<Quadra[]>('quadras') || [];
-  }
-
-  saveQuadras(quadras: Quadra[]): void {
-    this.setItem('quadras', quadras);
-  }
-
-  getQuadraById(id: string): Quadra | null {
+  async getQuadras(): Promise<Quadra[]> {
+    if (this.cache.quadras) {
+      return this.cache.quadras;
+    }
     try {
-      const quadras = this.getQuadras();
-      const quadra = quadras.find(q => q.id === id);
+      const quadras = await firebaseService.getQuadras();
+      // Garantir que sempre retorne um array, mesmo se houver erro
+      this.cache.quadras = Array.isArray(quadras) ? quadras : [];
+      return this.cache.quadras;
+    } catch (error) {
+      console.error('Erro no storageService.getQuadras():', error);
+      // Retornar array vazio em caso de erro
+      this.cache.quadras = [];
+      return [];
+    }
+  }
+
+  async saveQuadras(quadras: Quadra[]): Promise<void> {
+    this.cache.quadras = quadras;
+    // Salvar cada quadra no Firebase individualmente
+    // Isso garante que cada quadra seja atualizada separadamente
+    for (const quadra of quadras) {
+      try {
+        await firebaseService.saveQuadra(quadra);
+      } catch (error) {
+        console.error(`Erro ao salvar quadra ${quadra.id}:`, error);
+        // Continuar salvando outras quadras mesmo se uma falhar
+      }
+    }
+  }
+
+  async getQuadraById(id: string): Promise<Quadra | null> {
+    try {
+      const quadra = await firebaseService.getQuadraById(id);
       
       if (!quadra) {
         console.log('Quadra não encontrada com ID:', id);
         return null;
       }
       
-      // Se a quadra não tem operatingHours, retornar como está
-      // O componente vai lidar com isso
       return quadra;
     } catch (error) {
       console.error('Erro ao buscar quadra por ID:', error);
@@ -64,118 +88,80 @@ class StorageService {
   }
 
   // Reviews
-  getReviews(): Review[] {
-    return this.getItem<Review[]>('reviews') || [];
+  async getReviews(): Promise<Review[]> {
+    if (this.cache.reviews) {
+      return this.cache.reviews;
+    }
+    this.cache.reviews = await firebaseService.getReviews();
+    return this.cache.reviews;
   }
 
-  saveReviews(reviews: Review[]): void {
-    this.setItem('reviews', reviews);
+  async saveReviews(reviews: Review[]): Promise<void> {
+    this.cache.reviews = reviews;
+    // Salvar cada review no Firebase
+    for (const review of reviews) {
+      await firebaseService.saveReview(review);
+    }
   }
 
   // Reservas
-  getBookings(): Booking[] {
-    return this.getItem<Booking[]>('bookings') || [];
+  async getBookings(forceRefresh: boolean = false): Promise<Booking[]> {
+    if (this.cache.bookings && !forceRefresh) {
+      return this.cache.bookings;
+    }
+    this.cache.bookings = await firebaseService.getBookings();
+    return this.cache.bookings;
   }
 
-  saveBookings(bookings: Booking[]): void {
-    this.setItem('bookings', bookings);
+  async saveBookings(bookings: Booking[]): Promise<void> {
+    this.cache.bookings = bookings;
+    // Salvar cada booking no Firebase
+    console.log('💾 Salvando', bookings.length, 'reservas no Firebase...');
+    for (const booking of bookings) {
+      try {
+        await firebaseService.saveBooking(booking);
+        console.log('✅ Reserva salva:', booking.id, '- Status:', booking.status);
+      } catch (error) {
+        console.error(`❌ Erro ao salvar reserva ${booking.id}:`, error);
+        // Continuar salvando outras reservas mesmo se uma falhar
+      }
+    }
+    console.log('✅ Todas as reservas foram processadas');
   }
-
 
   // Chat
-  getChats(): Chat[] {
-    return this.getItem<Chat[]>('chats') || [];
+  async getChats(): Promise<Chat[]> {
+    if (this.cache.chats) {
+      return this.cache.chats;
+    }
+    this.cache.chats = await firebaseService.getChats();
+    return this.cache.chats;
   }
 
-  saveChats(chats: Chat[]): void {
-    this.setItem('chats', chats);
+  async saveChats(chats: Chat[]): Promise<void> {
+    this.cache.chats = chats;
+    // Salvar cada chat no Firebase
+    for (const chat of chats) {
+      await firebaseService.saveChat(chat);
+    }
   }
 
-  getChatByUserId(userId: string): Chat | null {
-    const chats = this.getChats();
-    return chats.find(chat => chat.userId === userId) || null;
+  async getChatByUserId(userId: string): Promise<Chat | null> {
+    return await firebaseService.getChatByUserId(userId);
   }
 
-  getChatById(chatId: string): Chat | null {
-    const chats = this.getChats();
-    return chats.find(chat => chat.id === chatId) || null;
+  async getChatById(chatId: string): Promise<Chat | null> {
+    return await firebaseService.getChatById(chatId);
+  }
+
+  // Limpar cache
+  clearCache(): void {
+    this.cache = {};
   }
 
   // Inicializar dados de exemplo
-  initializeData(): void {
-    if (!this.getUsers().length) {
-      const initialUsers: User[] = [
-        {
-          id: '1',
-          name: 'Admin Principal',
-          email: 'admin@ondetem.com',
-          role: 'admin'
-        },
-        {
-          id: '2',
-          name: 'João Silva',
-          email: 'joao@email.com',
-          role: 'user'
-        }
-      ];
-      this.saveUsers(initialUsers);
-    }
-
-    if (!this.getQuadras().length) {
-      const initialQuadras: Quadra[] = [
-        {
-          id: '1',
-          name: 'Quadra do Parque Central',
-          description: 'Quadra de futebol society com gramado sintético',
-          address: 'Parque Central, Centro',
-          coordinates: { lat: -23.5505, lng: -46.6333 },
-          price: 80,
-          photos: [],
-          rating: 4.5,
-          reviews: [],
-          amenities: ['Gramado sintético', 'Vestiários', 'Estacionamento'],
-          ownerId: '1',
-          isActive: true,
-          operatingHours: {
-            monday: { open: '08:00', close: '22:00', isOpen: true },
-            tuesday: { open: '08:00', close: '22:00', isOpen: true },
-            wednesday: { open: '08:00', close: '22:00', isOpen: true },
-            thursday: { open: '08:00', close: '22:00', isOpen: true },
-            friday: { open: '08:00', close: '22:00', isOpen: true },
-            saturday: { open: '08:00', close: '22:00', isOpen: true },
-            sunday: { open: '08:00', close: '22:00', isOpen: true }
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: '2',
-          name: 'Campo do Bairro',
-          description: 'Campo de futebol com gramado natural',
-          address: 'Rua das Flores, 123',
-          coordinates: { lat: -23.5515, lng: -46.6343 },
-          price: 60,
-          photos: [],
-          rating: 4.2,
-          reviews: [],
-          amenities: ['Gramado natural', 'Iluminação'],
-          ownerId: '1',
-          isActive: true,
-          operatingHours: {
-            monday: { open: '08:00', close: '22:00', isOpen: true },
-            tuesday: { open: '08:00', close: '22:00', isOpen: true },
-            wednesday: { open: '08:00', close: '22:00', isOpen: true },
-            thursday: { open: '08:00', close: '22:00', isOpen: true },
-            friday: { open: '08:00', close: '22:00', isOpen: true },
-            saturday: { open: '08:00', close: '22:00', isOpen: true },
-            sunday: { open: '08:00', close: '22:00', isOpen: true }
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      this.saveQuadras(initialQuadras);
-    }
+  async initializeData(): Promise<void> {
+    await firebaseService.initializeData();
   }
 }
 

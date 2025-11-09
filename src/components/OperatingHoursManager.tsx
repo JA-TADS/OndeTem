@@ -35,11 +35,11 @@ const OperatingHoursManager: React.FC<OperatingHoursManagerProps> = ({ quadraId,
     loadQuadra();
   }, [quadraId]);
 
-  const loadQuadra = () => {
+  const loadQuadra = async () => {
     try {
       setLoading(true);
       console.log('Carregando quadra com ID:', quadraId);
-      const quadraData = storageService.getQuadraById(quadraId);
+      const quadraData = await storageService.getQuadraById(quadraId);
       console.log('Dados da quadra:', quadraData);
       
       if (quadraData) {
@@ -92,21 +92,34 @@ const OperatingHoursManager: React.FC<OperatingHoursManagerProps> = ({ quadraId,
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!quadra) return;
 
-    const updatedQuadra = {
-      ...quadra,
-      operatingHours,
-      updatedAt: new Date().toISOString()
-    };
+    try {
+      const updatedQuadra = {
+        ...quadra,
+        operatingHours,
+        updatedAt: new Date().toISOString()
+      };
 
-    const allQuadras = storageService.getQuadras();
-    const updatedQuadras = allQuadras.map(q => q.id === quadraId ? updatedQuadra : q);
-    storageService.saveQuadras(updatedQuadras);
+      // Atualizar cache local primeiro
+      const allQuadras = await storageService.getQuadras();
+      const updatedQuadras = allQuadras.map(q => q.id === quadraId ? updatedQuadra : q);
+      
+      // Atualizar cache
+      storageService.clearCache();
+      await storageService.saveQuadras(updatedQuadras);
 
-    setQuadra(updatedQuadra);
-    alert('Horários de funcionamento atualizados com sucesso!');
+      // Salvar apenas esta quadra no Firebase (não todas)
+      const { firebaseService } = await import('../services/firebase');
+      await firebaseService.saveQuadra(updatedQuadra);
+
+      setQuadra(updatedQuadra);
+      alert('Horários de funcionamento atualizados com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar horários:', error);
+      alert('Erro ao salvar horários. Por favor, tente novamente.');
+    }
   };
 
   const copyToAllDays = (sourceDay: string) => {

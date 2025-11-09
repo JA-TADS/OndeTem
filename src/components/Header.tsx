@@ -12,45 +12,51 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 py-4">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center">
+    <header className="bg-white shadow-md fixed top-0 left-0 right-0 z-[1000]">
+      <div className="w-full py-4">
+        <div className="flex justify-between items-center px-8">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center hover:opacity-80 transition-opacity cursor-pointer"
+            title="Voltar para o mapa"
+          >
             <MapPin className="h-8 w-8 text-blue-500 mr-2" />
             <h1 className="text-2xl font-bold text-gray-900">OndeTem</h1>
-          </div>
+          </button>
           
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <span className="text-gray-700">Olá, {user.name}</span>
-                
-                {/* Avatar/Perfil */}
-                <button
-                  onClick={handleProfileClick}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                  title="Perfil"
-                >
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt="Avatar"
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <User className="h-5 w-5" />
-                  )}
-                </button>
-
                 {isAdmin && (
                   <button
                     onClick={() => navigate('/admin')}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
+                    className="flex items-center bg-blue-700 text-white px-10 py-2 rounded-lg hover:bg-blue-500 transition-colors mr-10"
                   >
                     <Settings className="h-5 w-5 mr-1" />
                     Admin
                   </button>
                 )}
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-gray-700">Olá, {user.name}</span>
+                  
+                  {/* Avatar/Perfil */}
+                  <button
+                    onClick={handleProfileClick}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors"
+                    title="Perfil"
+                  >
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt="Avatar"
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
               </>
             ) : (
               <>

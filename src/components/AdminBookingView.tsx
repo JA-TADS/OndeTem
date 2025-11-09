@@ -29,17 +29,34 @@ const AdminBookingView: React.FC<AdminBookingViewProps> = ({ quadraId, quadraNam
     }
   }, [selectedDate, quadra]);
 
-  const loadQuadra = () => {
-    const quadraData = storageService.getQuadraById(quadraId);
-    setQuadra(quadraData);
+  const loadQuadra = async () => {
+    try {
+      const quadraData = await storageService.getQuadraById(quadraId);
+      setQuadra(quadraData);
+    } catch (error) {
+      console.error('Erro ao carregar quadra:', error);
+      setQuadra(null);
+    }
   };
 
-  const loadBookingsForDate = () => {
-    const allBookings = storageService.getBookings();
-    const dateBookings = allBookings.filter(
-      booking => booking.quadraId === quadraId && booking.date === selectedDate
-    );
-    setBookings(dateBookings);
+  const loadBookingsForDate = async () => {
+    try {
+      // Cancelar reservas pendentes expiradas antes de carregar
+      const { firebaseService } = await import('../services/firebase');
+      await firebaseService.cancelExpiredPendingBookings();
+      
+      const allBookings = await storageService.getBookings();
+      // Mostrar apenas reservas confirmadas e pendentes (não mostrar canceladas)
+      const dateBookings = allBookings.filter(
+        booking => booking.quadraId === quadraId && 
+                   booking.date === selectedDate &&
+                   (booking.status === 'confirmed' || booking.status === 'pending')
+      );
+      setBookings(dateBookings);
+    } catch (error) {
+      console.error('Erro ao carregar reservas:', error);
+      setBookings([]);
+    }
   };
 
   const generateAllTimes = () => {
@@ -51,64 +68,77 @@ const AdminBookingView: React.FC<AdminBookingViewProps> = ({ quadraId, quadraNam
     try {
       console.log('Gerando horários para:', { quadra: quadra.name, selectedDate });
       
-      const dayOfWeek = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'lowercase' });
+      // Obter dia da semana usando getDay()
+      const dateObj = new Date(selectedDate + 'T00:00:00');
+      const dayIndex = dateObj.getDay();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayOfWeek = dayNames[dayIndex];
       console.log('Dia da semana:', dayOfWeek);
       
-      // Sempre usar horários padrão como fallback
-      const defaultTimes = [];
+      // Gerar todos os horários possíveis (08:00 às 22:00) para admin ver
+      const allPossibleTimes = [];
       const defaultStart = new Date('2000-01-01T08:00');
       const defaultEnd = new Date('2000-01-01T22:00');
 
-      while (defaultStart < defaultEnd) {
-        const timeString = defaultStart.toTimeString().substring(0, 5);
-        defaultTimes.push(timeString);
-        defaultStart.setMinutes(defaultStart.getMinutes() + 30);
+      let tempStart = new Date(defaultStart);
+      while (tempStart < defaultEnd) {
+        const timeString = tempStart.toTimeString().substring(0, 5);
+        allPossibleTimes.push(timeString);
+        tempStart.setMinutes(tempStart.getMinutes() + 30);
       }
 
-      // Se a quadra não tem operatingHours, usar horários padrão
+      // Se a quadra não tem operatingHours, mostrar todos os horários
       if (!quadra.operatingHours) {
-        console.log('Quadra não tem operatingHours, usando horários padrão');
-        setAllTimes(defaultTimes);
+        console.log('Quadra não tem operatingHours, mostrando todos os horários');
+        setAllTimes(allPossibleTimes);
         return;
       }
       
       const dayHours = quadra.operatingHours[dayOfWeek as keyof typeof quadra.operatingHours];
       console.log('Horários do dia:', dayHours);
 
-      // Se não tem horários configurados para este dia, usar padrão
-      if (!dayHours || !dayHours.isOpen || !dayHours.open || !dayHours.close) {
-        console.log('Horários não configurados para este dia, usando padrão');
-        setAllTimes(defaultTimes);
-        return;
-      }
-
-      // Usar horários configurados
-      const times = [];
-      const start = new Date(`2000-01-01T${dayHours.open}`);
-      const end = new Date(`2000-01-01T${dayHours.close}`);
-
-      while (start < end) {
-        const timeString = start.toTimeString().substring(0, 5);
-        times.push(timeString);
-        start.setMinutes(start.getMinutes() + 30);
-      }
-
-      console.log('Horários gerados:', times);
-      setAllTimes(times.length > 0 ? times : defaultTimes);
+      // Sempre mostrar todos os horários para admin, mas marcar quais estão fora do funcionamento
+      setAllTimes(allPossibleTimes);
     } catch (error) {
       console.error('Erro ao gerar horários:', error);
-      // Em caso de erro, usar horários padrão
+      // Em caso de erro, mostrar horários padrão
       const fallbackTimes = [];
       const start = new Date('2000-01-01T08:00');
       const end = new Date('2000-01-01T22:00');
 
-      while (start < end) {
-        const timeString = start.toTimeString().substring(0, 5);
+      let tempStart = new Date(start);
+      while (tempStart < end) {
+        const timeString = tempStart.toTimeString().substring(0, 5);
         fallbackTimes.push(timeString);
-        start.setMinutes(start.getMinutes() + 30);
+        tempStart.setMinutes(tempStart.getMinutes() + 30);
       }
       setAllTimes(fallbackTimes);
     }
+  };
+
+  // Verificar se um horário está dentro do funcionamento
+  const isTimeInOperatingHours = (time: string): boolean => {
+    if (!quadra || !quadra.operatingHours || !selectedDate) return false;
+    
+    const dateObj = new Date(selectedDate + 'T00:00:00');
+    const dayIndex = dateObj.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = dayNames[dayIndex];
+    const dayHours = quadra.operatingHours[dayOfWeek as keyof typeof quadra.operatingHours];
+    
+    if (!dayHours || !dayHours.isOpen || !dayHours.open || !dayHours.close) {
+      return false;
+    }
+    
+    const openTime = dayHours.open.length === 5 ? dayHours.open : dayHours.open.substring(0, 5);
+    const closeTime = dayHours.close.length === 5 ? dayHours.close : dayHours.close.substring(0, 5);
+    const timeNormalized = time.length === 5 ? time : time.substring(0, 5);
+    
+    const timeDate = new Date(`2000-01-01T${timeNormalized}:00`);
+    const openDate = new Date(`2000-01-01T${openTime}:00`);
+    const closeDate = new Date(`2000-01-01T${closeTime}:00`);
+    
+    return timeDate >= openDate && timeDate < closeDate;
   };
 
   const getBookingForTime = (time: string) => {
@@ -197,14 +227,22 @@ const AdminBookingView: React.FC<AdminBookingViewProps> = ({ quadraId, quadraNam
               <div className="grid grid-cols-6 gap-2">
                 {allTimes.map((time) => {
                   const booking = getBookingForTime(time);
+                  const isInOperatingHours = isTimeInOperatingHours(time);
+                  
+                  // Determinar cor baseado no status
+                  let bgColor = 'bg-white border-gray-200 text-gray-700';
+                  if (booking) {
+                    bgColor = getBookingStatusColor(booking.status);
+                  } else if (!isInOperatingHours) {
+                    // Horário fora do funcionamento - mais escuro para admin
+                    bgColor = 'bg-gray-400 border-gray-500 text-gray-800 opacity-60';
+                  }
+                  
                   return (
                     <div
                       key={time}
-                      className={`p-3 rounded border text-center ${
-                        booking
-                          ? getBookingStatusColor(booking.status)
-                          : 'bg-white border-gray-200 text-gray-700'
-                      }`}
+                      className={`p-3 rounded border text-center ${bgColor}`}
+                      title={!isInOperatingHours ? 'Horário fora do funcionamento' : ''}
                     >
                       <div className="text-sm font-medium">{time}</div>
                       {booking && (
@@ -213,6 +251,11 @@ const AdminBookingView: React.FC<AdminBookingViewProps> = ({ quadraId, quadraNam
                           <div className="opacity-75">
                             {getBookingStatusText(booking.status)}
                           </div>
+                        </div>
+                      )}
+                      {!booking && !isInOperatingHours && (
+                        <div className="mt-1 text-xs opacity-75">
+                          Fechado
                         </div>
                       )}
                     </div>

@@ -110,7 +110,7 @@ const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
           <button
             onClick={handleConfirm}
             disabled={!selectedLocation}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
+            className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
           >
             <Check className="h-4 w-4 mr-2" />
             Confirmar Localização

@@ -25,22 +25,27 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false, quadraId }) =>
     scrollToBottom();
   }, [selectedChat]);
 
-  const loadChats = () => {
-    const allChats = storageService.getChats();
-    if (isAdmin) {
-      // Para admin, mostrar apenas chats onde ele é o adminId
-      const adminChats = allChats.filter(chat => chat.adminId === user?.id);
-      setChats(adminChats);
-    } else {
-      // Para usuário, filtrar por quadra se especificada
-      let userChats = allChats.filter(chat => chat.userId === user?.id);
-      
-      if (quadraId) {
-        // Filtrar apenas chats da quadra específica
-        userChats = userChats.filter(chat => chat.quadraId === quadraId);
+  const loadChats = async () => {
+    try {
+      const allChats = await storageService.getChats();
+      if (isAdmin) {
+        // Para admin, mostrar apenas chats onde ele é o adminId
+        const adminChats = allChats.filter(chat => chat.adminId === user?.id);
+        setChats(adminChats);
+      } else {
+        // Para usuário, filtrar por quadra se especificada
+        let userChats = allChats.filter(chat => chat.userId === user?.id);
+        
+        if (quadraId) {
+          // Filtrar apenas chats da quadra específica
+          userChats = userChats.filter(chat => chat.quadraId === quadraId);
+        }
+        
+        setChats(userChats);
       }
-      
-      setChats(userChats);
+    } catch (error) {
+      console.error('Erro ao carregar chats:', error);
+      setChats([]);
     }
   };
 
@@ -48,105 +53,114 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false, quadraId }) =>
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const startNewChat = () => {
+  const startNewChat = async () => {
     if (!user) return;
 
-    // Se tem quadraId, verificar se já existe chat para essa quadra
-    if (quadraId) {
-      const existingChat = storageService.getChats().find(chat => 
-        chat.userId === user.id && chat.quadraId === quadraId
-      );
-      if (existingChat) {
-        setSelectedChat(existingChat);
-        setShowChatList(false);
-        return;
-      }
-    } else {
-      // Se não tem quadraId, usar lógica antiga
-      const existingChat = storageService.getChatByUserId(user.id);
-      if (existingChat) {
-        setSelectedChat(existingChat);
-        setShowChatList(false);
-        return;
-      }
-    }
-
-    // Encontrar o admin da quadra se quadraId foi especificado
-    let adminId = '1';
-    let adminName = 'Admin';
-    
-    if (quadraId) {
-      const quadra = storageService.getQuadraById(quadraId);
-      if (quadra) {
-        adminId = quadra.ownerId;
-        // Buscar nome do admin
-        const users = storageService.getUsers();
-        const admin = users.find(u => u.id === quadra.ownerId);
-        if (admin) {
-          adminName = admin.name;
+    try {
+      // Se tem quadraId, verificar se já existe chat para essa quadra
+      if (quadraId) {
+        const allChats = await storageService.getChats();
+        const existingChat = allChats.find(chat => 
+          chat.userId === user.id && chat.quadraId === quadraId
+        );
+        if (existingChat) {
+          setSelectedChat(existingChat);
+          setShowChatList(false);
+          return;
+        }
+      } else {
+        // Se não tem quadraId, usar lógica antiga
+        const existingChat = await storageService.getChatByUserId(user.id);
+        if (existingChat) {
+          setSelectedChat(existingChat);
+          setShowChatList(false);
+          return;
         }
       }
+
+      // Encontrar o admin da quadra se quadraId foi especificado
+      let adminId = '1';
+      let adminName = 'Admin';
+      
+      if (quadraId) {
+        const quadra = await storageService.getQuadraById(quadraId);
+        if (quadra) {
+          adminId = quadra.ownerId;
+          // Buscar nome do admin
+          const users = await storageService.getUsers();
+          const admin = users.find(u => u.id === quadra.ownerId);
+          if (admin) {
+            adminName = admin.name;
+          }
+        }
+      }
+
+      const newChat: Chat = {
+        id: Date.now().toString(),
+        userId: user.id,
+        userName: user.name,
+        adminId: adminId,
+        adminName: adminName,
+        quadraId: quadraId,
+        messages: [],
+        lastMessage: '',
+        lastMessageTime: new Date().toISOString(),
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
+
+      const allChats = await storageService.getChats();
+      const updatedChats = [...allChats, newChat];
+      await storageService.saveChats(updatedChats);
+      
+      // Recarregar chats para manter filtros corretos
+      loadChats();
+      setSelectedChat(newChat);
+      setShowChatList(false);
+    } catch (error) {
+      console.error('Erro ao criar novo chat:', error);
     }
-
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      userId: user.id,
-      userName: user.name,
-      adminId: adminId,
-      adminName: adminName,
-      quadraId: quadraId,
-      messages: [],
-      lastMessage: '',
-      lastMessageTime: new Date().toISOString(),
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-
-    const allChats = storageService.getChats();
-    const updatedChats = [...allChats, newChat];
-    storageService.saveChats(updatedChats);
-    
-    // Recarregar chats para manter filtros corretos
-    loadChats();
-    setSelectedChat(newChat);
-    setShowChatList(false);
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!newMessage.trim() || !selectedChat || !user) return;
 
-    const message: ChatMessage = {
-      id: Date.now().toString(),
-      senderId: user.id,
-      senderName: user.name,
-      receiverId: user.id === selectedChat.userId ? selectedChat.adminId : selectedChat.userId,
-      message: newMessage.trim(),
-      timestamp: new Date().toISOString(),
-      isRead: false
-    };
+    try {
+      const message: ChatMessage = {
+        id: Date.now().toString(),
+        senderId: user.id,
+        senderName: user.name,
+        receiverId: user.id === selectedChat.userId ? selectedChat.adminId : selectedChat.userId,
+        message: newMessage.trim(),
+        timestamp: new Date().toISOString(),
+        isRead: false
+      };
 
-    const updatedChat = {
-      ...selectedChat,
-      messages: [...selectedChat.messages, message],
-      lastMessage: message.message,
-      lastMessageTime: message.timestamp,
-      // Se for um admin respondendo, atualizar o adminId
-      ...(isAdmin && {
-        adminId: user.id,
-        adminName: user.name
-      })
-    };
+      const updatedChat = {
+        ...selectedChat,
+        messages: [...selectedChat.messages, message],
+        lastMessage: message.message,
+        lastMessageTime: message.timestamp,
+        // Se for um admin respondendo, atualizar o adminId
+        ...(isAdmin && {
+          adminId: user.id,
+          adminName: user.name
+        })
+      };
 
-    const allChats = storageService.getChats();
-    const updatedChats = allChats.map(chat => 
-      chat.id === selectedChat.id ? updatedChat : chat
-    );
-    storageService.saveChats(updatedChats);
+      const allChats = await storageService.getChats();
+      const updatedChats = allChats.map(chat => 
+        chat.id === selectedChat.id ? updatedChat : chat
+      );
+      await storageService.saveChats(updatedChats);
 
-    setSelectedChat(updatedChat);
-    // Recarregar chats para manter filtros corretos
-    loadChats();
-    setNewMessage('');
+      setSelectedChat(updatedChat);
+      // Recarregar chats para manter filtros corretos
+      loadChats();
+      setNewMessage('');
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+    }
   };
 
   const formatTime = (timestamp: string) => {
@@ -160,18 +174,22 @@ const ChatSystem: React.FC<ChatSystemProps> = ({ isAdmin = false, quadraId }) =>
     return new Date(timestamp).toLocaleDateString('pt-BR');
   };
 
-  const handleDeleteChat = (chatId: string) => {
+  const handleDeleteChat = async (chatId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.')) {
-      const allChats = storageService.getChats();
-      const updatedChats = allChats.filter(chat => chat.id !== chatId);
-      storageService.saveChats(updatedChats);
-      
-      // Recarregar chats
-      loadChats();
-      
-      // Se o chat deletado estava selecionado, limpar seleção
-      if (selectedChat?.id === chatId) {
-        setSelectedChat(null);
+      try {
+        const allChats = await storageService.getChats();
+        const updatedChats = allChats.filter(chat => chat.id !== chatId);
+        await storageService.saveChats(updatedChats);
+        
+        // Recarregar chats
+        loadChats();
+        
+        // Se o chat deletado estava selecionado, limpar seleção
+        if (selectedChat?.id === chatId) {
+          setSelectedChat(null);
+        }
+      } catch (error) {
+        console.error('Erro ao deletar chat:', error);
       }
     }
   };

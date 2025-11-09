@@ -8,7 +8,8 @@ interface PaymentQRCodeProps {
   totalPrice: number;
   quadraName: string;
   userName: string;
-  onPaymentConfirmed: () => void;
+  onPaymentConfirmed: () => Promise<void>;
+  onCancel?: () => void;
 }
 
 const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
@@ -17,22 +18,43 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
   totalPrice,
   quadraName,
   userName,
-  onPaymentConfirmed
+  onPaymentConfirmed,
+  onCancel
 }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [pixKey, setPixKey] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'confirmed' | 'timeout'>('pending');
-  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 minutos em segundos
+  const [timeLeft, setTimeLeft] = useState(5 * 60); // 5 minutos em segundos
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Chave PIX do admin (em produção viria do banco de dados)
   const adminPixKey = 'admin@ondetem.com'; // Chave PIX do admin
 
   useEffect(() => {
     if (isOpen) {
-      generateQRCode();
-      setTimeLeft(15 * 60);
+      setLoading(true);
+      setError(null);
+      setTimeLeft(5 * 60);
       setPaymentStatus('pending');
+      // Usar função anônima para evitar dependência circular
+      (async () => {
+        try {
+          await generateQRCode();
+        } catch (err) {
+          console.error('Erro ao gerar QR Code:', err);
+          setError('Erro ao gerar QR Code. Por favor, tente novamente.');
+          setLoading(false);
+        }
+      })();
+    } else {
+      // Resetar quando fechar
+      setQrCodeUrl('');
+      setPixKey('');
+      setCopied(false);
+      setLoading(false);
+      setError(null);
     }
   }, [isOpen, totalPrice]);
 
@@ -42,12 +64,27 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
       timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
     } else if (timeLeft === 0 && paymentStatus === 'pending') {
       setPaymentStatus('timeout');
+      // Cancelar reserva automaticamente quando timeout (após 2 segundos)
+      if (onCancel) {
+        setTimeout(() => {
+          onCancel();
+        }, 2000);
+      }
     }
     return () => clearTimeout(timer);
-  }, [timeLeft, paymentStatus]);
+  }, [timeLeft, paymentStatus, onCancel]);
 
   const generateQRCode = async () => {
     try {
+      // Validar dados antes de gerar
+      if (!totalPrice || totalPrice <= 0 || isNaN(totalPrice)) {
+        throw new Error('Valor inválido para pagamento');
+      }
+      
+      if (!quadraName || !userName) {
+        throw new Error('Dados da reserva incompletos');
+      }
+      
       // Gerar código PIX (formato simplificado para demonstração)
       const pixData = {
         chave: adminPixKey,
@@ -68,8 +105,12 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
 
       setQrCodeUrl(qrCodeDataUrl);
       setPixKey(adminPixKey);
-    } catch (error) {
+      setLoading(false);
+    } catch (error: any) {
       console.error('Erro ao gerar QR Code:', error);
+      setError(error?.message || 'Erro ao gerar QR Code. Por favor, tente novamente.');
+      setLoading(false);
+      throw error; // Re-throw para o useEffect capturar
     }
   };
 
@@ -85,21 +126,39 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const handlePaymentConfirm = () => {
-    setPaymentStatus('confirmed');
-    setTimeout(() => {
-      onPaymentConfirmed();
+  const handlePaymentConfirm = async () => {
+    try {
+      console.log('🔄 Iniciando confirmação de pagamento...');
+      setPaymentStatus('confirmed');
+      // Parar o timer imediatamente para evitar cancelamento automático
+      setTimeLeft(5 * 60); // Resetar para evitar que o timer continue
+      
+      // Aguardar um pouco para mostrar a mensagem de sucesso
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      console.log('✅ Chamando onPaymentConfirmed...');
+      // Chamar a função de confirmação ANTES de fechar o modal
+      await onPaymentConfirmed();
+      
+      // Aguardar um pouco mais antes de fechar para garantir que a confirmação foi processada
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Fechar o modal sem chamar onCancel
       onClose();
-    }, 2000);
+    } catch (error) {
+      console.error('❌ Erro ao confirmar pagamento:', error);
+      setError('Erro ao confirmar pagamento. Por favor, tente novamente.');
+      setPaymentStatus('pending');
+    }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b">
+        <div className="p-6 border-b rounded-t-lg">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold flex items-center">
               <CreditCard className="h-5 w-5 mr-2" />
@@ -115,7 +174,7 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 pt-6">
           {/* Informações da Reserva */}
           <div className="mb-6 p-4 bg-blue-50 rounded-lg">
             <h3 className="font-semibold text-blue-900 mb-2">Detalhes da Reserva</h3>
@@ -124,8 +183,23 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
             <p className="text-sm text-blue-800">Valor: R$ {totalPrice.toFixed(2)}</p>
           </div>
 
+          {/* Erro */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Gerando QR Code...</p>
+            </div>
+          )}
+
           {/* Status do Pagamento */}
-          {paymentStatus === 'pending' && (
+          {!loading && !error && paymentStatus === 'pending' && (
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
@@ -171,22 +245,35 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
                 )}
               </div>
 
-              {/* Botão de Confirmação Manual */}
-              <div className="text-center">
+              {/* Botões de Ação */}
+              <div className="text-center space-y-3">
+                {onCancel && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Tem certeza que deseja cancelar esta reserva?')) {
+                        onCancel();
+                        onClose();
+                      }
+                    }}
+                    className="bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600 w-full"
+                  >
+                    Cancelar Reserva
+                  </button>
+                )}
+                <p className="text-xs text-gray-500">
+                  Clique aqui após realizar o pagamento
+                </p>
                 <button
                   onClick={handlePaymentConfirm}
-                  className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+                  className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 w-full"
                 >
                   Confirmar Pagamento
                 </button>
-                <p className="text-xs text-gray-500 mt-2">
-                  Clique aqui após realizar o pagamento
-                </p>
               </div>
             </div>
           )}
 
-          {paymentStatus === 'confirmed' && (
+          {!loading && !error && paymentStatus === 'confirmed' && (
             <div className="text-center py-8">
               <Check className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-green-600 mb-2">
@@ -198,7 +285,7 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
             </div>
           )}
 
-          {paymentStatus === 'timeout' && (
+          {!loading && !error && paymentStatus === 'timeout' && (
             <div className="text-center py-8">
               <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-red-600 mb-2">
@@ -210,7 +297,7 @@ const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
               <button
                 onClick={() => {
                   setPaymentStatus('pending');
-                  setTimeLeft(15 * 60);
+                  setTimeLeft(5 * 60);
                   generateQRCode();
                 }}
                 className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"

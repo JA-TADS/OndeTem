@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, ArrowLeft } from 'lucide-react';
@@ -13,6 +13,15 @@ const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Desabilitar scroll no body quando o componente montar
+    document.body.style.overflow = 'hidden';
+    // Reabilitar scroll quando o componente desmontar
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,35 +60,49 @@ const Register: React.FC = () => {
       } else {
         setError('Email já está em uso');
       }
-    } catch (error) {
-      setError('Erro ao criar conta');
+    } catch (error: any) {
+      console.error('Erro detalhado no registro:', error);
+      // Mostrar mensagem de erro mais específica
+      if (error.code) {
+        if (error.code === 'auth/email-already-in-use') {
+          setError('Email já está em uso');
+        } else if (error.code === 'auth/weak-password') {
+          setError('Senha muito fraca. Use pelo menos 6 caracteres');
+        } else if (error.code === 'auth/invalid-email') {
+          setError('Email inválido');
+        } else if (error.code === 'permission-denied') {
+          setError('Erro de permissão. Verifique as regras do Firestore');
+        } else {
+          setError(`Erro: ${error.message || 'Erro ao criar conta'}`);
+        }
+      } else {
+        setError('Erro ao criar conta. Verifique o console para mais detalhes');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex items-center justify-center mb-4">
-            <button
-              onClick={() => navigate('/')}
-              className="flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Voltar ao Mapa
-            </button>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-50 overflow-hidden">
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-24 left-4 flex items-center text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors z-10"
+      >
+        <ArrowLeft className="h-5 w-5 mr-2" />
+        Voltar ao Mapa
+      </button>
+      <div className="max-w-md w-full px-4">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
             Criar Conta
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="text-sm text-gray-600">
             Cadastre-se para fazer reservas
           </p>
         </div>
         
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">

@@ -22,19 +22,11 @@ const AppContent: React.FC = () => {
         <Route path="/register" element={<Register />} />
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <MapView />
-            </ProtectedRoute>
-          }
+          element={<MapView />}
         />
         <Route
           path="/quadra/:id"
-          element={
-            <ProtectedRoute>
-              <QuadraDetail />
-            </ProtectedRoute>
-          }
+          element={<QuadraDetail />}
         />
         <Route
           path="/admin"

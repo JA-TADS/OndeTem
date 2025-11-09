@@ -11,6 +11,8 @@
   "dependencies": {
     "@types/qrcode": "^1.5.5",
     "axios": "^1.3.4",
+    "cloudinary": "^2.8.0",
+    "firebase": "^12.5.0",
     "leaflet": "^1.9.3",
     "lucide-react": "^0.263.1",
     "qrcode": "^1.5.4",

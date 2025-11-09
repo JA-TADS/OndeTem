@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { storageService } from '../services/storage';
+import { uploadUserAvatar } from '../services/cloudinary';
 import { User, Booking } from '../types';
 import { User as UserIcon, Edit, Camera, LogOut, Calendar, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -12,8 +13,11 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userBookings, setUserBookings] = useState<Booking[]>([]);
+  const [quadrasMap, setQuadrasMap] = useState<Record<string, string>>({});
 
   React.useEffect(() => {
     if (user) {
@@ -23,47 +27,104 @@ const ProfilePage: React.FC = () => {
   }, [user]);
 
   React.useEffect(() => {
-    if (activeTab === 'bookings' && user) {
-      try {
-        const allBookings = storageService.getBookings();
-        const bookings = allBookings.filter(booking => booking.userId === user.id);
-        setUserBookings(bookings);
-      } catch (error) {
-        console.error('Erro ao carregar reservas:', error);
-        setUserBookings([]);
+    const loadBookings = async () => {
+      if (activeTab === 'bookings' && user) {
+        try {
+          // Carregar quadras para obter os nomes
+          const allQuadras = await storageService.getQuadras();
+          const quadrasMapTemp: Record<string, string> = {};
+          allQuadras.forEach(quadra => {
+            quadrasMapTemp[quadra.id] = quadra.name;
+          });
+          setQuadrasMap(quadrasMapTemp);
+
+          // Carregar reservas do usuário
+          const allBookings = await storageService.getBookings();
+          const bookings = allBookings.filter(booking => booking.userId === user.id);
+          setUserBookings(bookings);
+        } catch (error) {
+          console.error('Erro ao carregar reservas:', error);
+          setUserBookings([]);
+        }
       }
-    }
+    };
+    loadBookings();
   }, [activeTab, user]);
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!user) return;
 
     try {
+      setUploading(true);
+      let avatarUrl = editAvatar || user.avatar || undefined;
+
+      // Se há um arquivo novo, fazer upload para Cloudinary
+      if (avatarFile) {
+        console.log('Fazendo upload da imagem para Cloudinary...');
+        try {
+          avatarUrl = await uploadUserAvatar(user.id, avatarFile);
+          console.log('Imagem enviada com sucesso:', avatarUrl);
+        } catch (error) {
+          console.error('Erro ao fazer upload:', error);
+          // Erro apenas no console, sem pop-up
+          setUploading(false);
+          return;
+        }
+      }
+
       const updatedUser: User = {
         ...user,
         name: editName,
-        avatar: editAvatar
+        avatar: avatarUrl || undefined
       };
 
+      console.log('Salvando perfil...', { name: updatedUser.name, hasAvatar: !!updatedUser.avatar });
+
       // Atualizar usuário no contexto (atualiza o header automaticamente)
-      updateUser(updatedUser);
+      await updateUser(updatedUser);
       
       // Atualizar na lista de usuários
-      const allUsers = storageService.getUsers();
+      const allUsers = await storageService.getUsers();
       const updatedUsers = allUsers.map(u => u.id === user.id ? updatedUser : u);
-      storageService.saveUsers(updatedUsers);
+      await storageService.saveUsers(updatedUsers);
 
+      setAvatarFile(null);
       setIsEditing(false);
-      alert('Perfil atualizado com sucesso!');
-    } catch (error) {
+      setUploading(false);
+      // Perfil atualizado com sucesso (sem pop-up)
+    } catch (error: any) {
       console.error('Erro ao salvar perfil:', error);
-      alert('Erro ao salvar perfil');
+      setUploading(false);
+      
+      // Erro apenas no console, sem pop-up
+      if (error.code === 'permission-denied') {
+        console.error('Erro de permissão! Verifique as regras do Firestore no Firebase Console.');
+        console.error('O upload da imagem funcionou, mas não foi possível salvar no banco de dados.');
+      } else {
+        console.error(`Erro ao salvar perfil: ${error.message || 'Erro desconhecido'}`);
+      }
     }
   };
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validar tipo de arquivo
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecione apenas arquivos de imagem.');
+        return;
+      }
+
+      // Validar tamanho (máximo 10MB - Cloudinary aceita até 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 10MB.');
+        return;
+      }
+
+      // Salvar o arquivo para upload posterior
+      setAvatarFile(file);
+
+      // Mostrar preview local
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
@@ -89,6 +150,39 @@ const ProfilePage: React.FC = () => {
 
   const formatTime = (timeString: string) => {
     return timeString.substring(0, 5);
+  };
+
+  const formatDateTime = (dateTimeString: string | undefined) => {
+    if (!dateTimeString) return 'Data não disponível';
+    
+    try {
+      // Tentar parsear como ISO string primeiro
+      let date = new Date(dateTimeString);
+      
+      // Se a data for inválida, tentar outros formatos
+      if (isNaN(date.getTime())) {
+        // Tentar adicionar 'T00:00:00' se for apenas data
+        date = new Date(dateTimeString + 'T00:00:00');
+      }
+      
+      // Se ainda for inválida, retornar mensagem
+      if (isNaN(date.getTime())) {
+        console.warn('Data inválida:', dateTimeString);
+        return 'Data inválida';
+      }
+      
+      // Formatar data e hora em português
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dateTimeString);
+      return 'Data inválida';
+    }
   };
 
   const getBookingStatusColor = (status: string) => {
@@ -177,9 +271,9 @@ const ProfilePage: React.FC = () => {
               {/* Avatar */}
               <div className="flex items-center space-x-6">
                 <div className="relative">
-                  {editAvatar ? (
+                  {(editAvatar || user.avatar) ? (
                     <img
-                      src={editAvatar}
+                      src={editAvatar || user.avatar}
                       alt="Avatar"
                       className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                     />
@@ -239,10 +333,11 @@ const ProfilePage: React.FC = () => {
                   <>
                     <button
                       onClick={handleSaveProfile}
-                      className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 flex items-center"
+                      disabled={uploading}
+                      className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Edit className="h-4 w-4 mr-2" />
-                      Salvar
+                      {uploading ? 'Salvando...' : 'Salvar'}
                     </button>
                     <button
                       onClick={() => {
@@ -252,7 +347,7 @@ const ProfilePage: React.FC = () => {
                       }}
                       className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
                     >
-                      Cancelar
+                      Fechar
                     </button>
                   </>
                 ) : (
@@ -288,7 +383,9 @@ const ProfilePage: React.FC = () => {
                     <div key={booking.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
-                          <h4 className="font-semibold text-lg">Quadra {booking.quadraId}</h4>
+                          <h4 className="font-semibold text-lg">
+                            {quadrasMap[booking.quadraId] || `Quadra ${booking.quadraId}`}
+                          </h4>
                           <p className="text-gray-600">
                             {formatDate(booking.date)} - {formatTime(booking.startTime)} às {formatTime(booking.endTime)}
                           </p>
@@ -302,7 +399,7 @@ const ProfilePage: React.FC = () => {
                           Total: R$ {booking.totalPrice.toFixed(2)}
                         </span>
                         <span className="text-sm text-gray-500">
-                          Criada em: {new Date(booking.createdAt).toLocaleDateString('pt-BR')}
+                          Criada em: {formatDateTime(booking.createdAt)}
                         </span>
                       </div>
                     </div>

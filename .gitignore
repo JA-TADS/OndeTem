@@ -92,6 +92,10 @@ dist
 tmp/
 temp/
 
+# Firebase configuration (sensitive data)
+config/firebase.config.ts
+config/cloudinary.config.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

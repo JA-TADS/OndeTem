@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { firebaseAuth, firebaseService } from '../services/firebase';
 import { storageService } from '../services/storage';
 
 interface AuthContextType {
@@ -27,61 +28,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Inicializar dados de exemplo
-    storageService.initializeData();
+    // Inicializar dados (se necessário)
+    firebaseService.initializeData();
     
-    // Verificar se há usuário logado
-    const currentUser = storageService.getCurrentUser();
-    setUser(currentUser);
-    setLoading(false);
+    // Observar mudanças no estado de autenticação
+    const unsubscribe = firebaseAuth.onAuthStateChanged((currentUser) => {
+      // Limpar cache quando usuário muda (login/logout)
+      storageService.clearCache();
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const users = storageService.getUsers();
-    const foundUser = users.find(u => u.email === email);
-    
-    if (foundUser) {
-      setUser(foundUser);
-      storageService.setCurrentUser(foundUser);
-      return true;
+    try {
+      // Limpar cache antes do login
+      storageService.clearCache();
+      const loggedInUser = await firebaseAuth.login(email, password);
+      if (loggedInUser) {
+        setUser(loggedInUser);
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('Erro no login:', error);
+      // Tratar erros específicos do Firebase
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        return false;
+      }
+      throw error;
     }
-    return false;
   };
 
   const register = async (name: string, email: string, password: string, role: 'user' | 'admin'): Promise<boolean> => {
-    const users = storageService.getUsers();
-    
-    // Verificar se email já existe
-    if (users.find(u => u.email === email)) {
+    try {
+      const newUser = await firebaseAuth.register(name, email, password, role);
+      if (newUser) {
+        setUser(newUser);
+        return true;
+      }
       return false;
+    } catch (error: any) {
+      console.error('Erro no registro:', error);
+      // Tratar erros específicos do Firebase
+      if (error.code === 'auth/email-already-in-use') {
+        return false;
+      }
+      throw error;
     }
-
-    const newUser: User = {
-      id: Date.now().toString(),
-      name,
-      email,
-      role,
-      avatar: undefined
-    };
-
-    const updatedUsers = [...users, newUser];
-    storageService.saveUsers(updatedUsers);
-    
-    setUser(newUser);
-    storageService.setCurrentUser(newUser);
-    return true;
   };
 
-  const logout = () => {
-    setUser(null);
-    storageService.setCurrentUser(null);
-    // Redirecionar para o mapa após logout
-    window.location.href = '/';
+  const logout = async () => {
+    try {
+      // Marcar que estamos fazendo logout para evitar atualizações de estado
+      if ((window as any).__isLoggingOut) {
+        (window as any).__isLoggingOut();
+      }
+      
+      // Limpar cache antes do logout
+      storageService.clearCache();
+      
+      // Fazer logout no Firebase primeiro
+      await firebaseAuth.logout();
+      
+      // Redirecionar para a tela de login após logout
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Erro no logout:', error);
+      // Se houver erro, ainda assim redirecionar para login
+      window.location.href = '/login';
+    }
   };
 
-  const updateUser = (updatedUser: User) => {
-    setUser(updatedUser);
-    storageService.setCurrentUser(updatedUser);
+  const updateUser = async (updatedUser: User) => {
+    try {
+      await firebaseService.updateUser(updatedUser.id, updatedUser);
+      setUser(updatedUser);
+    } catch (error) {
+      console.error('Erro ao atualizar usuário:', error);
+    }
   };
 
   const isAdmin = user?.role === 'admin';

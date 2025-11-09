@@ -25,11 +25,8 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
 
   const durationOptions = [
     { value: 1, label: '1 hora', price: quadraPrice },
-    { value: 1.5, label: '1h 30min', price: quadraPrice * 1.5 },
     { value: 2, label: '2 horas', price: quadraPrice * 2 },
-    { value: 2.5, label: '2h 30min', price: quadraPrice * 2.5 },
     { value: 3, label: '3 horas', price: quadraPrice * 3 },
-    { value: 3.5, label: '3h 30min', price: quadraPrice * 3.5 },
     { value: 4, label: '4 horas', price: quadraPrice * 4 }
   ];
 
@@ -38,10 +35,39 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
   }, [quadraId]);
 
   useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && quadra) {
+      // Limpar cache antes de gerar horários para garantir dados atualizados
+      storageService.clearCache();
       generateAvailableTimes();
+    } else {
+      setAvailableTimes([]);
     }
-  }, [selectedDate, quadra]);
+  }, [selectedDate, quadra, quadraId]);
+
+  // Recarregar horários quando a janela ganha foco (para sincronizar com mudanças de outros usuários)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (selectedDate && quadra) {
+        storageService.clearCache();
+        generateAvailableTimes();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && selectedDate && quadra) {
+        storageService.clearCache();
+        generateAvailableTimes();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [selectedDate, quadra, quadraId]);
 
   useEffect(() => {
     if (selectedDuration) {
@@ -49,11 +75,11 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
     }
   }, [selectedDuration, quadraPrice]);
 
-  const loadQuadra = () => {
+  const loadQuadra = async () => {
     try {
       setLoading(true);
       console.log('Carregando quadra com ID:', quadraId);
-      const quadraData = storageService.getQuadraById(quadraId);
+      const quadraData = await storageService.getQuadraById(quadraId);
       console.log('Dados da quadra carregados:', quadraData);
       
       if (quadraData) {
@@ -68,61 +94,150 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
     }
   };
 
-  const generateAvailableTimes = () => {
-    if (!selectedDate) {
+  const generateAvailableTimes = async () => {
+    if (!selectedDate || !quadra) {
+      console.log('Sem data ou quadra:', { selectedDate, quadra: !!quadra });
       setAvailableTimes([]);
       return;
     }
 
     try {
-      console.log('Gerando horários para data:', selectedDate);
+      // Cancelar reservas pendentes expiradas antes de gerar horários
+      const { firebaseService } = await import('../services/firebase');
+      await firebaseService.cancelExpiredPendingBookings();
+      console.log('=== INÍCIO: Gerando horários ===');
+      console.log('Data selecionada:', selectedDate);
+      console.log('Quadra:', quadra.name);
+      console.log('OperatingHours da quadra:', quadra.operatingHours);
       
-      // Sempre usar horários padrão (8h às 22h) como base
-      const allTimes = [];
-      const start = new Date('2000-01-01T08:00');
-      const end = new Date('2000-01-01T22:00');
-
-      while (start < end) {
-        const timeString = start.toTimeString().substring(0, 5);
-        allTimes.push(timeString);
-        start.setMinutes(start.getMinutes() + 30);
+      // Obter dia da semana (formato: monday, tuesday, etc.)
+      const dateObj = new Date(selectedDate + 'T00:00:00');
+      
+      // Usar getDay() que retorna 0 (domingo) a 6 (sábado) e mapear para os nomes em inglês
+      const dayIndex = dateObj.getDay();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const mappedDay = dayNames[dayIndex];
+      
+      console.log('Data objeto:', dateObj);
+      console.log('Índice do dia (0=domingo, 6=sábado):', dayIndex);
+      console.log('Dia mapeado:', mappedDay);
+      
+      // Horários padrão como fallback
+      const defaultStart = new Date('2000-01-01T08:00');
+      const defaultEnd = new Date('2000-01-01T22:00');
+      const defaultTimes: string[] = [];
+      
+      let tempStart = new Date(defaultStart);
+      while (tempStart < defaultEnd) {
+        defaultTimes.push(tempStart.toTimeString().substring(0, 5));
+        tempStart.setMinutes(tempStart.getMinutes() + 30);
       }
 
-      console.log('Todos os horários possíveis:', allTimes);
+      // Verificar horários de funcionamento da quadra
+      let allTimes: string[] = [];
+      
+      if (quadra.operatingHours) {
+        const dayHours = quadra.operatingHours[mappedDay as keyof typeof quadra.operatingHours];
+        console.log('Horários do dia:', dayHours);
+        
+         if (dayHours && dayHours.isOpen && dayHours.open && dayHours.close) {
+           // Usar horários configurados da quadra (NÃO usar padrão)
+           // Garantir formato HH:MM
+           const openTime = dayHours.open.length === 5 ? dayHours.open : dayHours.open.substring(0, 5);
+           const closeTime = dayHours.close.length === 5 ? dayHours.close : dayHours.close.substring(0, 5);
+           
+           const start = new Date(`2000-01-01T${openTime}:00`);
+           const end = new Date(`2000-01-01T${closeTime}:00`);
+           
+           // Gerar apenas horários dentro do intervalo de funcionamento (apenas horas inteiras)
+           let tempStart = new Date(start);
+           // Arredondar para a próxima hora inteira se necessário
+           if (tempStart.getMinutes() > 0) {
+             tempStart.setMinutes(0);
+             tempStart.setHours(tempStart.getHours() + 1);
+           }
+           while (tempStart < end) {
+             const timeString = tempStart.toTimeString().substring(0, 5);
+             allTimes.push(timeString);
+             tempStart.setHours(tempStart.getHours() + 1); // Incrementar de 1 em 1 hora
+           }
+           
+           console.log('✅ Usando horários da quadra:', openTime, '-', closeTime);
+           console.log('Horários gerados:', allTimes.length, allTimes);
+         } else {
+          // Quadra fechada neste dia ou horários inválidos
+          console.warn('⚠️ Quadra fechada ou horários inválidos:', {
+            dayHours,
+            isOpen: dayHours?.isOpen,
+            open: dayHours?.open,
+            close: dayHours?.close
+          });
+          setAvailableTimes([]);
+          return;
+        }
+       } else {
+         // Sem horários configurados, não mostrar nenhum horário (não usar padrão)
+         console.warn('⚠️ Quadra sem operatingHours configurado, não mostrando horários');
+         setAvailableTimes([]);
+         return;
+       }
 
-      // Obter reservas existentes
-      const existingBookings = storageService.getBookings().filter(
-        booking => booking.quadraId === quadraId && booking.date === selectedDate
+      console.log('Todos os horários possíveis:', allTimes.length, allTimes);
+
+       // Obter reservas existentes (apenas confirmadas e pendentes)
+       // Forçar refresh para garantir dados atualizados
+       storageService.clearCache();
+       const allBookings = await storageService.getBookings();
+       console.log('Total de reservas no sistema:', allBookings.length);
+      
+      const existingBookings = allBookings.filter(
+        booking => booking.quadraId === quadraId && 
+               booking.date === selectedDate &&
+               (booking.status === 'confirmed' || booking.status === 'pending')
       );
 
-      console.log('Reservas existentes:', existingBookings);
+      console.log('Reservas existentes para esta quadra/data:', existingBookings.length, existingBookings);
 
-      // Filtrar horários disponíveis
+      // Filtrar horários disponíveis (remover horários já reservados)
       const availableTimesFiltered = allTimes.filter(time => {
-        const timeDate = new Date(`2000-01-01T${time}`);
+        // Normalizar formato do horário (garantir HH:MM)
+        const normalizedTime = time.length === 5 ? time : time.substring(0, 5);
+        const timeDate = new Date(`2000-01-01T${normalizedTime}:00`);
         
-        return !existingBookings.some(booking => {
-          const bookingStart = new Date(`2000-01-01T${booking.startTime}`);
-          const bookingEnd = new Date(`2000-01-01T${booking.endTime}`);
-          return timeDate >= bookingStart && timeDate < bookingEnd;
+        const isBooked = existingBookings.some(booking => {
+          // Normalizar formatos dos horários da reserva
+          const bookingStartNormalized = booking.startTime.length === 5 ? booking.startTime : booking.startTime.substring(0, 5);
+          const bookingEndNormalized = booking.endTime.length === 5 ? booking.endTime : booking.endTime.substring(0, 5);
+          
+          const bookingStart = new Date(`2000-01-01T${bookingStartNormalized}:00`);
+          const bookingEnd = new Date(`2000-01-01T${bookingEndNormalized}:00`);
+          
+          // Verificar se o horário está dentro do intervalo da reserva
+          // Um horário está reservado se ele está >= startTime e < endTime
+          const isInRange = timeDate >= bookingStart && timeDate < bookingEnd;
+          
+          if (isInRange) {
+            console.log(`❌ Horário ${normalizedTime} está RESERVADO por ${booking.userName} (${bookingStartNormalized}-${bookingEndNormalized}, status: ${booking.status})`);
+          }
+          
+          return isInRange;
         });
+        
+        if (isBooked) {
+          console.log(`🚫 Removendo horário ${normalizedTime} da lista de disponíveis`);
+        }
+        
+        return !isBooked;
       });
 
-      console.log('Horários disponíveis:', availableTimesFiltered);
+      console.log('✅ Horários disponíveis finais:', availableTimesFiltered.length, availableTimesFiltered);
+      console.log('=== FIM: Gerando horários ===');
+      
       setAvailableTimes(availableTimesFiltered);
     } catch (error) {
-      console.error('Erro ao gerar horários:', error);
-      // Em caso de erro, usar horários padrão
-      const fallbackTimes = [];
-      const start = new Date('2000-01-01T08:00');
-      const end = new Date('2000-01-01T22:00');
-
-      while (start < end) {
-        const timeString = start.toTimeString().substring(0, 5);
-        fallbackTimes.push(timeString);
-        start.setMinutes(start.getMinutes() + 30);
-      }
-      setAvailableTimes(fallbackTimes);
+      console.error('❌ Erro ao gerar horários disponíveis:', error);
+      console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
+      setAvailableTimes([]);
     }
   };
 
@@ -137,77 +252,195 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
     return end.toTimeString().substring(0, 5);
   };
 
-  const handleBooking = () => {
-    if (!selectedDate || !selectedStartTime || !selectedDuration) return;
-    
-    if (!user) {
-      alert('Você precisa fazer login para fazer uma reserva. Clique em "Entrar" no menu superior.');
-      return;
+  const handleBooking = async () => {
+    try {
+      if (!selectedDate || !selectedStartTime || !selectedDuration) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+      }
+      
+      if (!user) {
+        alert('Você precisa fazer login para fazer uma reserva. Clique em "Entrar" no menu superior.');
+        return;
+      }
+
+      const endTime = calculateEndTime(selectedStartTime, selectedDuration);
+
+       // Verificar conflitos (incluindo reservas confirmadas e pendentes)
+       // Forçar refresh para garantir dados atualizados
+       storageService.clearCache();
+       const allBookings = await storageService.getBookings();
+       const existingBookings = allBookings.filter(
+        booking => booking.quadraId === quadraId && 
+                   booking.date === selectedDate &&
+                   (booking.status === 'confirmed' || booking.status === 'pending')
+      );
+
+      const hasConflict = existingBookings.some(booking => {
+        // Normalizar formatos dos horários
+        const bookingStartNormalized = booking.startTime.length === 5 ? booking.startTime : booking.startTime.substring(0, 5);
+        const bookingEndNormalized = booking.endTime.length === 5 ? booking.endTime : booking.endTime.substring(0, 5);
+        const newStartNormalized = selectedStartTime.length === 5 ? selectedStartTime : selectedStartTime.substring(0, 5);
+        const newEndNormalized = endTime.length === 5 ? endTime : endTime.substring(0, 5);
+        
+        const bookingStart = new Date(`2000-01-01T${bookingStartNormalized}:00`);
+        const bookingEnd = new Date(`2000-01-01T${bookingEndNormalized}:00`);
+        const newStart = new Date(`2000-01-01T${newStartNormalized}:00`);
+        const newEnd = new Date(`2000-01-01T${newEndNormalized}:00`);
+
+        // Verificar se há sobreposição de horários
+        const conflict = (newStart < bookingEnd && newEnd > bookingStart);
+        
+        if (conflict) {
+          console.log(`⚠️ Conflito detectado: Nova reserva (${newStartNormalized}-${newEndNormalized}) conflita com reserva existente (${bookingStartNormalized}-${bookingEndNormalized})`);
+        }
+        
+        return conflict;
+      });
+
+      if (hasConflict) {
+        alert('Este horário já está reservado. Por favor, escolha outro horário.');
+        // Recarregar horários disponíveis
+        await generateAvailableTimes();
+        return;
+      }
+
+      // Criar dados da reserva (salvar como pendente imediatamente)
+      const bookingData: Omit<Booking, 'id'> = {
+        quadraId,
+        userId: user.id,
+        userName: user.name,
+        date: selectedDate,
+        startTime: selectedStartTime,
+        endTime: endTime,
+        totalPrice,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Salvar reserva diretamente no Firebase primeiro
+      try {
+        const { firebaseService } = await import('../services/firebase');
+        const bookingId = await firebaseService.saveBooking(bookingData);
+        
+        // Criar objeto booking completo com o ID retornado pelo Firebase
+        const booking: Booking = {
+          ...bookingData,
+          id: bookingId
+        };
+        
+        // Atualizar cache local
+        storageService.clearCache();
+        
+        // Limpar cache e atualizar horários disponíveis após salvar
+        await generateAvailableTimes();
+        
+        // Armazenar booking para uso posterior
+        setBookingData(booking);
+        setShowPayment(true);
+      } catch (error) {
+        console.error('Erro ao salvar reserva pendente no Firebase:', error);
+        alert('Erro ao processar reserva. Por favor, tente novamente.');
+        return;
+      }
+    } catch (error) {
+      console.error('Erro ao processar reserva:', error);
+      alert('Erro ao processar reserva. Por favor, tente novamente.');
     }
-
-    const endTime = calculateEndTime(selectedStartTime, selectedDuration);
-
-    // Verificar conflitos
-    const existingBookings = storageService.getBookings().filter(
-      booking => booking.quadraId === quadraId && booking.date === selectedDate
-    );
-
-    const hasConflict = existingBookings.some(booking => {
-      const bookingStart = new Date(`2000-01-01T${booking.startTime}`);
-      const bookingEnd = new Date(`2000-01-01T${booking.endTime}`);
-      const newStart = new Date(`2000-01-01T${selectedStartTime}`);
-      const newEnd = new Date(`2000-01-01T${endTime}`);
-
-      return (newStart < bookingEnd && newEnd > bookingStart);
-    });
-
-    if (hasConflict) {
-      alert('Este horário já está reservado. Por favor, escolha outro horário.');
-      return;
-    }
-
-    // Criar dados da reserva (ainda não salvar)
-    const booking: Booking = {
-      id: Date.now().toString(),
-      quadraId,
-      userId: user.id,
-      userName: user.name,
-      date: selectedDate,
-      startTime: selectedStartTime,
-      endTime: endTime,
-      totalPrice,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setBookingData(booking);
-    setShowPayment(true);
   };
 
-  const handlePaymentConfirmed = () => {
+  const handlePaymentConfirmed = async () => {
+    if (!bookingData) {
+      console.error('❌ Erro: bookingData está null ao tentar confirmar pagamento');
+      alert('Erro: Dados da reserva não encontrados. Por favor, tente novamente.');
+      return;
+    }
+
+    try {
+      console.log('✅ Confirmando pagamento para reserva:', bookingData.id);
+      
+      // Limpar cache antes de buscar reservas para garantir dados atualizados
+      storageService.clearCache();
+      
+      // Buscar todas as reservas atualizadas
+      const allBookings = await storageService.getBookings();
+      console.log('Total de reservas encontradas:', allBookings.length);
+      
+      // Verificar se a reserva ainda existe
+      const existingBooking = allBookings.find(b => b.id === bookingData.id);
+      if (!existingBooking) {
+        console.error('❌ Erro: Reserva não encontrada no banco de dados');
+        alert('Erro: Reserva não encontrada. Por favor, tente novamente.');
+        return;
+      }
+      
+      // Atualizar reserva existente para confirmada
+      const confirmedBooking = {
+        ...existingBooking,
+        status: 'confirmed' as const,
+        updatedAt: new Date().toISOString()
+      };
+      
+      console.log('💾 Atualizando reserva para confirmada no Firebase...');
+      // Salvar diretamente no Firebase
+      const { firebaseService } = await import('../services/firebase');
+      await firebaseService.saveBooking(confirmedBooking);
+      console.log('✅ Reserva confirmada salva no Firebase com sucesso');
+      
+      // Limpar cache e atualizar horários disponíveis após confirmar
+      storageService.clearCache();
+      if (selectedDate) {
+        await generateAvailableTimes();
+      }
+
+      // Limpar formulário
+      setSelectedDate('');
+      setSelectedStartTime('');
+      setSelectedDuration(1);
+      setTotalPrice(0);
+      setBookingData(null);
+      setShowPayment(false);
+
+      alert('Reserva confirmada com sucesso! Pagamento aprovado.');
+    } catch (error) {
+      console.error('❌ Erro ao confirmar pagamento:', error);
+      console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
+      alert('Erro ao confirmar pagamento. Por favor, tente novamente.');
+    }
+  };
+
+  const handleBookingCancel = async () => {
     if (!bookingData) return;
 
-    // Salvar reserva como confirmada após pagamento
-    const confirmedBooking = {
-      ...bookingData,
-      status: 'confirmed' as const,
-      updatedAt: new Date().toISOString()
-    };
+    try {
+      // Atualizar reserva para cancelada
+      const cancelledBooking = {
+        ...bookingData,
+        status: 'cancelled' as const,
+        updatedAt: new Date().toISOString()
+      };
 
-    const allBookings = storageService.getBookings();
-    const updatedBookings = [...allBookings, confirmedBooking];
-    storageService.saveBookings(updatedBookings);
+      // Salvar diretamente no Firebase
+      const { firebaseService } = await import('../services/firebase');
+      await firebaseService.saveBooking(cancelledBooking);
+      console.log('✅ Reserva cancelada salva no Firebase');
+      
+      // Limpar cache e atualizar horários disponíveis após cancelar
+      storageService.clearCache();
+      if (selectedDate) {
+        await generateAvailableTimes();
+      }
 
-    // Limpar formulário
-    setSelectedDate('');
-    setSelectedStartTime('');
-    setSelectedDuration(1);
-    setTotalPrice(0);
-    setBookingData(null);
-    setShowPayment(false);
+      // Limpar dados
+      setBookingData(null);
+      setShowPayment(false);
 
-    alert('Reserva confirmada com sucesso! Pagamento aprovado.');
+      alert('Reserva cancelada com sucesso.');
+    } catch (error) {
+      console.error('Erro ao cancelar reserva:', error);
+      alert('Erro ao cancelar reserva. Por favor, tente novamente.');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -294,13 +527,31 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
             min={new Date().toISOString().split('T')[0]}
             className="border rounded px-3 py-2 w-full"
           />
-          {selectedDate && (
-            <div className="text-sm text-gray-600 mt-1">
-              <p>{getDayName(selectedDate)} - {formatDate(selectedDate)}</p>
-              <p className="text-green-600">Funcionamento: 08:00 às 22:00</p>
-              <p>Horários disponíveis: {availableTimes.length}</p>
-            </div>
-          )}
+          {selectedDate && (() => {
+            // Obter horários de funcionamento para o dia selecionado
+            const dateObj = new Date(selectedDate + 'T00:00:00');
+            const dayIndex = dateObj.getDay();
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const dayKey = dayNames[dayIndex] as keyof typeof quadra.operatingHours;
+            const dayHours = quadra.operatingHours?.[dayKey];
+            
+            let operatingHoursText = '08:00 às 22:00'; // Fallback padrão
+            if (dayHours && dayHours.isOpen && dayHours.open && dayHours.close) {
+              operatingHoursText = `${dayHours.open} às ${dayHours.close}`;
+            } else if (dayHours && !dayHours.isOpen) {
+              operatingHoursText = 'Fechado';
+            }
+            
+            return (
+              <div className="text-sm text-gray-600 mt-1">
+                <p>{getDayName(selectedDate)} - {formatDate(selectedDate)}</p>
+                <p className={dayHours?.isOpen ? "text-green-600" : "text-red-600"}>
+                  Funcionamento: {operatingHoursText}
+                </p>
+                <p>Horários disponíveis: {availableTimes.length}</p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Seleção de Horário */}
@@ -418,7 +669,26 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
       {showPayment && bookingData && (
         <PaymentQRCode
           isOpen={showPayment}
-          onClose={() => {
+          onClose={async () => {
+            // Verificar se o pagamento foi confirmado antes de cancelar
+            // Se o status ainda for 'pending', significa que foi fechado sem confirmar
+            if (bookingData && bookingData.status === 'pending') {
+              // Verificar no Firebase se a reserva ainda está pendente
+              try {
+                storageService.clearCache();
+                const allBookings = await storageService.getBookings();
+                const currentBooking = allBookings.find(b => b.id === bookingData.id);
+                
+                // Só cancelar se ainda estiver pendente no Firebase
+                if (currentBooking && currentBooking.status === 'pending') {
+                  await handleBookingCancel();
+                }
+              } catch (error) {
+                console.error('Erro ao verificar status da reserva:', error);
+                // Em caso de erro, cancelar por segurança
+                await handleBookingCancel();
+              }
+            }
             setShowPayment(false);
             setBookingData(null);
           }}
@@ -426,6 +696,7 @@ const SimpleBookingSystemV2: React.FC<SimpleBookingSystemV2Props> = ({ quadraId,
           quadraName={quadraName}
           userName={bookingData.userName}
           onPaymentConfirmed={handlePaymentConfirmed}
+          onCancel={handleBookingCancel}
         />
       )}
     </div>

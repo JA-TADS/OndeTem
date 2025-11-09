@@ -42,6 +42,7 @@ export interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+  quadraId?: string; // Opcional para compatibilidade com Firebase
 }
 
 export interface Booking {

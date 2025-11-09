@@ -9,25 +9,27 @@
 
 ## 📱 Sobre o Projeto
 
-O **OndeTem** é um aplicativo web completo para locação de quadras esportivas, desenvolvido com React e TypeScript. O sistema permite que usuários encontrem, avaliem e reservem quadras próximas, enquanto administradores gerenciam suas quadras e confirmam reservas.
+O **OndeTem** é um aplicativo web completo para locação de quadras esportivas, desenvolvido com React e TypeScript. O sistema permite que usuários encontrem, avaliem e reservem quadras próximas, enquanto administradores gerenciam suas quadras e horários de funcionamento.
 
 ## ✨ Funcionalidades
 
 ### 👤 Para Usuários
-- **🗺️ Mapa interativo** com quadras próximas
+- **🗺️ Mapa interativo** com quadras próximas e filtros por esporte/comodidades
 - **👤 Perfil personalizado** com foto de avatar
-- **📅 Sistema de reservas** flexível (1h a 4h, incrementos de 30min)
-- **⭐ Avaliações e comentários** nas quadras
+- **📅 Sistema de reservas** flexível (1h a 4h, apenas horas inteiras)
+- **⭐ Avaliações** nas quadras (com comentário opcional)
 - **📋 Histórico de reservas** completo
 - **💬 Chat** com administradores
+- **📍 Geolocalização** automática
 
 ### 🔧 Para Administradores
 - **⚙️ Painel administrativo** completo
 - **🏟️ Gerenciamento de quadras** (CRUD completo)
-- **✅ Confirmação de reservas** pendentes
+- **💰 Sistema de pagamento PIX** para reservas
 - **⏰ Horários de funcionamento** por quadra
 - **💬 Sistema de chat** com usuários
-- **📊 Visualização de horários** com status das reservas
+- **📊 Visualização de horários** com status das reservas (pendentes, confirmadas, canceladas)
+- **📸 Upload de fotos** via Cloudinary
 
 ## 🚀 Tecnologias Utilizadas
 
@@ -37,7 +39,7 @@ O **OndeTem** é um aplicativo web completo para locação de quadras esportivas
 - **Tailwind CSS 3.3.0** - Framework de estilização
 - **Leaflet** - Mapas interativos
 - **Lucide React** - Ícones modernos
-- **LocalStorage** - Persistência de dados
+- **Firebase** - Backend (Authentication, Firestore, Storage)
 
 ## 🛠️ Como Executar
 
@@ -56,12 +58,65 @@ cd onde-tem-quadras
 # Instalar dependências
 npm install
 
+# Configurar Firebase (veja seção abaixo)
+# Copie config/firebase.config.example.ts para config/firebase.config.ts
+# e preencha com suas credenciais do Firebase
+
 # Executar projeto
 npm run dev
 ```
 
 ### Acessar
 Abra [http://localhost:5173](http://localhost:5173) no navegador
+
+## 🔥 Configuração do Firebase
+
+Este projeto usa Firebase para autenticação e persistência de dados. **É necessário configurar o Firebase antes de usar o aplicativo.**
+
+### Passos para Configurar:
+
+1. **Criar projeto no Firebase**
+   - Acesse [Firebase Console](https://console.firebase.google.com/)
+   - Crie um novo projeto ou use um existente
+
+2. **Configurar Authentication**
+   - No Firebase Console, vá em **Authentication**
+   - Habilite o método **Email/Password**
+
+3. **Configurar Firestore Database**
+   - Vá em **Firestore Database**
+   - Crie o banco de dados
+   - Configure as regras de segurança (veja `config/README.md`)
+
+4. **Obter credenciais**
+   - Vá em **Configurações do projeto** → **Seus aplicativos**
+   - Adicione um app Web
+   - Copie as credenciais
+
+5. **Configurar arquivo local**
+   ```bash
+   # Copiar arquivo de exemplo
+   cp config/firebase.config.example.ts config/firebase.config.ts
+   
+   # Editar config/firebase.config.ts e preencher com suas credenciais
+   ```
+
+**⚠️ IMPORTANTE:** O arquivo `config/firebase.config.ts` está no `.gitignore` e **NÃO será commitado no Git**. Nunca compartilhe suas credenciais publicamente.
+
+Para mais detalhes, consulte `config/README.md`.
+
+## 📸 Configuração do Cloudinary (Upload de Imagens)
+
+Este projeto usa **Cloudinary** para armazenar imagens de quadras e fotos de perfil. É gratuito e fácil de configurar!
+
+### Passos Rápidos:
+
+1. **Criar conta gratuita** em [cloudinary.com](https://cloudinary.com/users/register/free)
+2. **Obter Cloud Name** do dashboard
+3. **Criar Upload Preset** (modo Unsigned)
+4. **Configurar** `config/cloudinary.config.ts` com suas credenciais
+
+Para instruções detalhadas, consulte `config/CLOUDINARY_SETUP.md`.
 
 ## 📊 Estrutura do Projeto
 
