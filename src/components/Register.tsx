@@ -84,23 +84,24 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gray-50 overflow-hidden">
+    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-orange-50 overflow-y-auto py-8">
       <button
         onClick={() => navigate('/')}
-        className="absolute top-24 left-4 flex items-center text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors z-10"
+        className="absolute top-24 left-4 flex items-center text-gray-700 hover:text-green-600 px-4 py-2 rounded-lg hover:bg-white/50 transition-all z-10 font-semibold"
       >
         <ArrowLeft className="h-5 w-5 mr-2" />
         Voltar ao Mapa
       </button>
       <div className="max-w-md w-full px-4">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-900 mb-2">
-            Criar Conta
-          </h2>
-          <p className="text-sm text-gray-600">
-            Cadastre-se para fazer reservas
-          </p>
-        </div>
+        <div className="bg-white rounded-2xl shadow-2xl p-8 card-sport">
+          <div className="text-center mb-8">
+            <h2 className="text-4xl font-sport text-transparent bg-clip-text bg-gradient-to-r from-green-600 via-green-500 to-emerald-500 mb-2">
+              Criar Conta
+            </h2>
+            <p className="text-sm text-gray-600 font-medium">
+              Cadastre-se para fazer reservas
+            </p>
+          </div>
         
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
@@ -113,7 +114,7 @@ const Register: React.FC = () => {
                 name="name"
                 type="text"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-4 py-3 border-2 border-gray-200 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all"
                 placeholder="Seu nome completo"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -129,7 +130,7 @@ const Register: React.FC = () => {
                 name="email"
                 type="email"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-4 py-3 border-2 border-gray-200 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -145,7 +146,7 @@ const Register: React.FC = () => {
                 name="password"
                 type="password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-4 py-3 border-2 border-gray-200 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all"
                 placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -161,7 +162,7 @@ const Register: React.FC = () => {
                 name="confirmPassword"
                 type="password"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="mt-1 appearance-none relative block w-full px-4 py-3 border-2 border-gray-200 placeholder-gray-400 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:z-10 sm:text-sm transition-all"
                 placeholder="Digite a senha novamente"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -182,10 +183,10 @@ const Register: React.FC = () => {
                     onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
                     className="mr-3"
                   />
-                  <User className="h-4 w-4 mr-2 text-blue-500" />
-                  <span className="text-sm">Usuário - Fazer reservas</span>
+                  <User className="h-5 w-5 mr-2 text-blue-500" />
+                  <span className="text-sm font-medium">Usuário - Fazer reservas</span>
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all">
                   <input
                     type="radio"
                     name="role"
@@ -194,15 +195,15 @@ const Register: React.FC = () => {
                     onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
                     className="mr-3"
                   />
-                  <Shield className="h-4 w-4 mr-2 text-green-500" />
-                  <span className="text-sm">Administrador - Gerenciar quadras</span>
+                  <Shield className="h-5 w-5 mr-2 text-green-600" />
+                  <span className="text-sm font-medium">Administrador - Gerenciar quadras</span>
                 </label>
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded">
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border-2 border-red-200 font-semibold">
               {error}
             </div>
           )}
@@ -211,7 +212,7 @@ const Register: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-not-allowed transform hover:scale-105 transition-all shadow-lg uppercase tracking-wide disabled:transform-none"
             >
               {loading ? 'Criando conta...' : 'Criar Conta'}
             </button>
@@ -223,13 +224,14 @@ const Register: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/login')}
-                className="text-indigo-600 hover:text-indigo-500"
+                className="text-green-600 hover:text-green-700 font-semibold"
               >
                 Fazer login
               </button>
             </p>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );

@@ -297,7 +297,7 @@ const MapView: React.FC = () => {
                   <div className="mt-2">
                     <button 
                       onClick={() => handleViewDetails(quadra.id)}
-                      className="bg-blue-700 text-white px-3 py-1 rounded text-sm hover:bg-blue-500 cursor-pointer transition-colors"
+                      className="bg-gradient-to-r from-green-600 to-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:from-green-700 hover:to-emerald-600 cursor-pointer transition-all transform hover:scale-105 shadow-md uppercase tracking-wide"
                       style={{ cursor: 'pointer' }}
                     >
                       Ver detalhes
@@ -313,14 +313,13 @@ const MapView: React.FC = () => {
       {/* Botão de Filtro - Canto superior direito */}
       <button
         onClick={() => setShowFilterModal(true)}
-        className="absolute top-20 right-4 z-[1000] bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 hover:shadow-xl"
+        className="absolute top-20 right-4 z-[1000] bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white p-3 rounded-full shadow-lg border-2 border-white flex items-center justify-center transition-all duration-200 hover:shadow-xl transform hover:scale-110"
         title="Filtros"
         style={{
           position: 'absolute',
           top: '5rem',
           right: '1rem',
           zIndex: 1000,
-          backgroundColor: 'white',
           borderRadius: '50%',
           padding: '0.75rem',
           width: '3rem',
@@ -329,13 +328,12 @@ const MapView: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          border: '1px solid #e5e7eb',
           cursor: 'pointer'
         }}
       >
         <Filter className="h-5 w-5" />
         {(selectedSports.length > 0 || selectedAmenities.length > 0) && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold border-2 border-white">
             {selectedSports.length + selectedAmenities.length}
           </span>
         )}
@@ -344,7 +342,7 @@ const MapView: React.FC = () => {
       {/* Botão flutuante para voltar à localização do usuário - SEMPRE VISÍVEL (abaixo do botão de filtro) */}
       <button
         onClick={goToUserLocation}
-        className="absolute top-40 right-4 z-[1000] bg-white hover:bg-gray-50 text-gray-700 p-3 rounded-full shadow-lg border border-gray-200 flex items-center justify-center transition-all duration-200 hover:shadow-xl"
+        className="absolute top-40 right-4 z-[1000] bg-white hover:bg-green-50 text-green-600 p-3 rounded-full shadow-lg border-2 border-green-200 flex items-center justify-center transition-all duration-200 hover:shadow-xl transform hover:scale-110"
         title="Minha Localização"
         style={{
           position: 'absolute',
@@ -355,7 +353,6 @@ const MapView: React.FC = () => {
           borderRadius: '50%',
           padding: '0.75rem',
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-          border: '1px solid #e5e7eb',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -371,16 +368,16 @@ const MapView: React.FC = () => {
       {/* Modal de Filtros */}
       {showFilterModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]" onClick={() => setShowFilterModal(false)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto card-sport" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b-2 border-gray-200 bg-gradient-to-r from-green-600 to-emerald-500">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Filter className="h-5 w-5 text-blue-500 mr-2" />
-                  <h2 className="text-xl font-bold text-gray-800">Filtros de Busca</h2>
+                  <Filter className="h-6 w-6 text-white mr-3" />
+                  <h2 className="text-2xl font-sport text-white">Filtros de Busca</h2>
                 </div>
                 <button
                   onClick={() => setShowFilterModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-white hover:text-yellow-200 transition-colors bg-white/20 hover:bg-white/30 rounded-full p-1"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -390,17 +387,26 @@ const MapView: React.FC = () => {
             <div className="p-6 space-y-6">
               {/* Filtro de Esportes */}
               <div>
-                <h3 className="font-semibold text-gray-800 mb-3">Esportes</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <h3 className="font-bold text-lg text-gray-800 mb-4 uppercase tracking-wide flex items-center">
+                  <span className="w-1 h-6 bg-gradient-to-b from-green-600 to-emerald-500 rounded-full mr-3"></span>
+                  Esportes
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {esportesDisponiveis.map((esporte) => (
-                    <label key={esporte} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <label key={esporte} className={`flex items-center space-x-2 cursor-pointer p-3 rounded-xl transition-all border-2 ${
+                      selectedSports.includes(esporte)
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-500 shadow-md'
+                        : 'hover:bg-gray-50 border-gray-200'
+                    }`}>
                       <input
                         type="checkbox"
                         checked={selectedSports.includes(esporte)}
                         onChange={() => handleSportToggle(esporte)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-5 h-5 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">{esporte}</span>
+                      <span className={`text-sm font-medium ${
+                        selectedSports.includes(esporte) ? 'text-green-700' : 'text-gray-700'
+                      }`}>{esporte}</span>
                     </label>
                   ))}
                 </div>
@@ -408,45 +414,57 @@ const MapView: React.FC = () => {
 
               {/* Filtro de Comodidades */}
               <div>
-                <h3 className="font-semibold text-gray-800 mb-3">Comodidades</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <h3 className="font-bold text-lg text-gray-800 mb-4 uppercase tracking-wide flex items-center">
+                  <span className="w-1 h-6 bg-gradient-to-b from-green-600 to-emerald-500 rounded-full mr-3"></span>
+                  Comodidades
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {comodidadesDisponiveis.map((amenity) => (
-                    <label key={amenity} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                    <label key={amenity} className={`flex items-center space-x-2 cursor-pointer p-3 rounded-xl transition-all border-2 ${
+                      selectedAmenities.includes(amenity)
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-500 shadow-md'
+                        : 'hover:bg-gray-50 border-gray-200'
+                    }`}>
                       <input
                         type="checkbox"
                         checked={selectedAmenities.includes(amenity)}
                         onChange={() => handleAmenityToggle(amenity)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 text-green-600 focus:ring-green-500 w-5 h-5 cursor-pointer"
                       />
-                      <span className="text-sm text-gray-700">{amenity}</span>
+                      <span className={`text-sm font-medium ${
+                        selectedAmenities.includes(amenity) ? 'text-green-700' : 'text-gray-700'
+                      }`}>{amenity}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               {/* Contador e Botões */}
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="text-sm text-gray-600">
+              <div className="flex items-center justify-between pt-6 border-t-2 border-gray-200">
+                <div className="text-sm font-semibold text-gray-700">
                   {selectedSports.length + selectedAmenities.length > 0 ? (
-                    <span>
-                      <strong>{quadras.length}</strong> quadra(s) encontrada(s)
+                    <span className="flex items-center">
+                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full mr-2">
+                        {quadras.length}
+                      </span>
+                      quadra(s) encontrada(s)
                     </span>
                   ) : (
-                    <span>Todas as quadras serão exibidas</span>
+                    <span className="text-gray-600">Todas as quadras serão exibidas</span>
                   )}
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex space-x-3">
                   {(selectedSports.length > 0 || selectedAmenities.length > 0) && (
                     <button
                       onClick={clearFilter}
-                      className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded hover:bg-gray-50"
+                      className="px-5 py-2 text-sm font-bold text-gray-700 hover:text-gray-900 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all uppercase tracking-wide"
                     >
-                      Limpar Filtros
+                      Limpar
                     </button>
                   )}
                   <button
                     onClick={() => setShowFilterModal(false)}
-                    className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                    className="px-6 py-2 text-sm font-bold bg-gradient-to-r from-green-600 to-emerald-500 text-white rounded-xl hover:from-green-700 hover:to-emerald-600 transition-all shadow-lg transform hover:scale-105 uppercase tracking-wide"
                   >
                     Aplicar
                   </button>

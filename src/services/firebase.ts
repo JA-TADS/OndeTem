@@ -131,8 +131,13 @@ export const firebaseService = {
         id: doc.id,
         ...doc.data()
       } as User));
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+    } catch (error: any) {
+      // Se for erro de permissão, apenas logar como warning e retornar array vazio
+      if (error?.code === 'permission-denied') {
+        console.warn('Permissão negada ao buscar usuários. Retornando array vazio.');
+      } else {
+        console.error('Erro ao buscar usuários:', error);
+      }
       return [];
     }
   },
@@ -147,8 +152,13 @@ export const firebaseService = {
         } as User;
       }
       return null;
-    } catch (error) {
-      console.error('Erro ao buscar usuário:', error);
+    } catch (error: any) {
+      // Se for erro de permissão, apenas logar como warning, não como error
+      if (error?.code === 'permission-denied') {
+        console.warn('Permissão negada ao buscar usuário:', userId);
+      } else {
+        console.error('Erro ao buscar usuário:', error);
+      }
       return null;
     }
   },
@@ -567,14 +577,91 @@ export const firebaseService = {
   // ========== CHATS ==========
   getChats: async (): Promise<Chat[]> => {
     try {
+      // Tentar buscar todos os chats (pode falhar por permissão)
       const chatsSnapshot = await getDocs(collection(db, 'chats'));
-      return chatsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || doc.data().createdAt
-      } as Chat));
-    } catch (error) {
+      return chatsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          userName: data.userName || '',
+          adminId: data.adminId || '',
+          adminName: data.adminName || '',
+          quadraId: data.quadraId || undefined,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime || '',
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
+        } as Chat;
+      });
+    } catch (error: any) {
+      // Se for erro de permissão, retornar array vazio
+      if (error?.code === 'permission-denied') {
+        console.warn('Permissão negada ao buscar todos os chats. Use getChatsByUserId ou getChatsByAdminId.');
+        return [];
+      }
       console.error('Erro ao buscar chats:', error);
+      return [];
+    }
+  },
+
+  getChatsByUserId: async (userId: string): Promise<Chat[]> => {
+    try {
+      const q = query(collection(db, 'chats'), where('userId', '==', userId));
+      const chatsSnapshot = await getDocs(q);
+      return chatsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          userName: data.userName || '',
+          adminId: data.adminId || '',
+          adminName: data.adminName || '',
+          quadraId: data.quadraId || undefined,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime || '',
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
+        } as Chat;
+      });
+    } catch (error: any) {
+      if (error?.code === 'permission-denied') {
+        console.warn('Permissão negada ao buscar chats do usuário:', userId);
+      } else {
+        console.error('Erro ao buscar chats do usuário:', error);
+      }
+      return [];
+    }
+  },
+
+  getChatsByAdminId: async (adminId: string): Promise<Chat[]> => {
+    try {
+      const q = query(collection(db, 'chats'), where('adminId', '==', adminId));
+      const chatsSnapshot = await getDocs(q);
+      return chatsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId || '',
+          userName: data.userName || '',
+          adminId: data.adminId || '',
+          adminName: data.adminName || '',
+          quadraId: data.quadraId || undefined,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime || '',
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
+        } as Chat;
+      });
+    } catch (error: any) {
+      if (error?.code === 'permission-denied') {
+        console.warn('Permissão negada ao buscar chats do admin:', adminId);
+      } else {
+        console.error('Erro ao buscar chats do admin:', error);
+      }
       return [];
     }
   },
@@ -585,10 +672,19 @@ export const firebaseService = {
       const chatsSnapshot = await getDocs(q);
       if (!chatsSnapshot.empty) {
         const chatDoc = chatsSnapshot.docs[0];
+        const data = chatDoc.data();
         return {
           id: chatDoc.id,
-          ...chatDoc.data(),
-          createdAt: chatDoc.data().createdAt?.toDate?.()?.toISOString() || chatDoc.data().createdAt
+          userId: data.userId || '',
+          userName: data.userName || '',
+          adminId: data.adminId || '',
+          adminName: data.adminName || '',
+          quadraId: data.quadraId || undefined,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime || '',
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
         } as Chat;
       }
       return null;
@@ -602,11 +698,26 @@ export const firebaseService = {
     try {
       const chatDoc = await getDoc(doc(db, 'chats', chatId));
       if (chatDoc.exists()) {
-        return {
+        const data = chatDoc.data();
+        const chat: Chat = {
           id: chatDoc.id,
-          ...chatDoc.data(),
-          createdAt: chatDoc.data().createdAt?.toDate?.()?.toISOString() || chatDoc.data().createdAt
-        } as Chat;
+          userId: data.userId || '',
+          userName: data.userName || '',
+          adminId: data.adminId || '',
+          adminName: data.adminName || '',
+          quadraId: data.quadraId || undefined,
+          messages: Array.isArray(data.messages) ? data.messages : [],
+          lastMessage: data.lastMessage || '',
+          lastMessageTime: data.lastMessageTime || '',
+          isActive: data.isActive !== undefined ? data.isActive : true,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString()
+        };
+        console.log('Chat retornado do Firebase getChatById:', {
+          id: chat.id,
+          messagesCount: chat.messages.length,
+          messages: chat.messages
+        });
+        return chat;
       }
       return null;
     } catch (error) {
@@ -625,7 +736,13 @@ export const firebaseService = {
       // Remover campos undefined antes de salvar
       const cleanedData = removeUndefinedFields(chatData);
       
+      // Log para debug
       if ('id' in chat && chat.id) {
+        console.log('Salvando chat no Firebase:', {
+          id: chat.id,
+          messagesCount: Array.isArray(cleanedData.messages) ? cleanedData.messages.length : 0,
+          hasMessages: !!cleanedData.messages
+        });
         await setDoc(doc(db, 'chats', chat.id), cleanedData);
         return chat.id;
       } else {
@@ -635,6 +752,15 @@ export const firebaseService = {
       }
     } catch (error) {
       console.error('Erro ao salvar chat:', error);
+      throw error;
+    }
+  },
+
+  deleteChat: async (chatId: string): Promise<void> => {
+    try {
+      await deleteDoc(doc(db, 'chats', chatId));
+    } catch (error) {
+      console.error('Erro ao deletar chat:', error);
       throw error;
     }
   },

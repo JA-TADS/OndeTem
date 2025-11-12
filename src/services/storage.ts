@@ -134,8 +134,19 @@ class StorageService {
     if (this.cache.chats) {
       return this.cache.chats;
     }
+    // Tentar buscar todos os chats (pode falhar por permissão)
     this.cache.chats = await firebaseService.getChats();
     return this.cache.chats;
+  }
+
+  async getChatsByUserId(userId: string): Promise<Chat[]> {
+    // Buscar chats usando query específica que respeita as regras de permissão
+    return await firebaseService.getChatsByUserId(userId);
+  }
+
+  async getChatsByAdminId(adminId: string): Promise<Chat[]> {
+    // Buscar chats usando query específica que respeita as regras de permissão
+    return await firebaseService.getChatsByAdminId(adminId);
   }
 
   async saveChats(chats: Chat[]): Promise<void> {
@@ -152,6 +163,20 @@ class StorageService {
 
   async getChatById(chatId: string): Promise<Chat | null> {
     return await firebaseService.getChatById(chatId);
+  }
+
+  // Atualizar cache de chats sem salvar no Firebase
+  updateChatsCache(chats: Chat[]): void {
+    this.cache.chats = chats;
+  }
+
+  async deleteChat(chatId: string): Promise<void> {
+    // Deletar do Firebase
+    await firebaseService.deleteChat(chatId);
+    // Atualizar cache local
+    if (this.cache.chats) {
+      this.cache.chats = this.cache.chats.filter(chat => chat.id !== chatId);
+    }
   }
 
   // Limpar cache

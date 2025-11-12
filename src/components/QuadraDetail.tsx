@@ -210,10 +210,10 @@ const QuadraDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-orange-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando detalhes da quadra...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-700 font-semibold">Carregando detalhes da quadra...</p>
         </div>
       </div>
     );
@@ -221,13 +221,13 @@ const QuadraDetail: React.FC = () => {
 
   if (!quadra) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-orange-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Quadra não encontrada</h2>
+          <h2 className="text-3xl font-sport text-gray-900 mb-2">Quadra não encontrada</h2>
           <p className="text-gray-600 mb-4">A quadra que você está procurando não existe ou foi removida.</p>
           <button
             onClick={() => navigate('/')}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className="bg-gradient-to-r from-green-600 to-emerald-500 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-emerald-600 font-bold uppercase tracking-wide transform hover:scale-105 transition-all shadow-lg"
           >
             Voltar ao mapa
           </button>
@@ -237,15 +237,16 @@ const QuadraDetail: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-orange-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl mb-6 overflow-hidden">
           {quadra.photos && quadra.photos.length > 0 && (
             <img 
               src={quadra.photos[0]} 
               alt={quadra.name}
               className="w-full h-64 object-cover"
+              style={{ borderRadius: 0 }}
               onError={(e) => {
                 // Se a imagem falhar ao carregar, ocultar
                 (e.target as HTMLImageElement).style.display = 'none';
@@ -255,28 +256,28 @@ const QuadraDetail: React.FC = () => {
           <div className="p-6">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">{quadra.name}</h1>
-              <p className="text-gray-600 mt-2">{quadra.description}</p>
-              <div className="flex items-center mt-4 space-x-4">
-                <div className="flex items-center">
+                <h1 className="text-4xl font-sport text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-blue-600 mb-2">{quadra.name}</h1>
+              <p className="text-gray-600 mt-2 font-medium">{quadra.description}</p>
+              <div className="flex items-center mt-4 space-x-6">
+                <div className="flex items-center bg-yellow-50 px-3 py-1 rounded-full">
                   <Star className="h-5 w-5 text-yellow-400 fill-current" />
-                  <span className="ml-1 font-semibold">{quadra.rating.toFixed(1)}</span>
+                  <span className="ml-1 font-bold text-gray-900">{quadra.rating.toFixed(1)}</span>
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <MapPin className="h-5 w-5" />
+                <div className="flex items-center text-gray-700 font-medium">
+                  <MapPin className="h-5 w-5 text-green-600" />
                   <span className="ml-1">{quadra.address}</span>
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <DollarSign className="h-5 w-5" />
-                  <span className="ml-1">R$ {quadra.price}/hora</span>
+                <div className="flex items-center bg-green-50 px-3 py-1 rounded-full">
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  <span className="ml-1 font-bold text-gray-900">R$ {quadra.price}/hora</span>
                 </div>
               </div>
               </div>
               <button
                 onClick={() => navigate('/')}
-                className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                className="bg-gradient-to-r from-gray-600 to-gray-700 text-white px-6 py-2 rounded-xl hover:from-gray-700 hover:to-gray-800 font-bold uppercase tracking-wide transform hover:scale-105 transition-all shadow-lg"
               >
-                Voltar ao mapa
+                Voltar
               </button>
             </div>
           </div>
@@ -284,23 +285,23 @@ const QuadraDetail: React.FC = () => {
 
         {/* Abas de navegação */}
         <div className="mb-6">
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+          <div className="flex space-x-1 bg-white/80 backdrop-blur-sm p-1 rounded-xl shadow-lg border-2 border-gray-200">
             <button
               onClick={() => setActiveTab('info')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-6 py-3 rounded-lg text-sm font-bold transition-all uppercase tracking-wide ${
                 activeTab === 'info'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-lg transform scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
               Informações
             </button>
             <button
               onClick={() => setActiveTab('reservas')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-6 py-3 rounded-lg text-sm font-bold transition-all uppercase tracking-wide ${
                 activeTab === 'reservas'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-lg transform scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
               <Clock className="h-4 w-4 mr-2 inline" />
@@ -308,10 +309,10 @@ const QuadraDetail: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('chat')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-6 py-3 rounded-lg text-sm font-bold transition-all uppercase tracking-wide ${
                 activeTab === 'chat'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-lg transform scale-105'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
               <MessageCircle className="h-4 w-4 mr-2 inline" />
