@@ -50,10 +50,10 @@ O **OndeTem** é um aplicativo web completo para locação de quadras esportivas
 ### Instalação
 ```bash
 # Clonar repositório
-git clone https://github.com/SEU_USUARIO/onde-tem-quadras.git
+git clone https://github.com/JA-TADS/OndeTem.git
 
 # Entrar na pasta
-cd onde-tem-quadras
+cd OndeTem
 
 # Instalar dependências
 npm install
