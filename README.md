@@ -7,6 +7,8 @@
   <img src="https://img.shields.io/badge/Tailwind-3.3.0-cyan?style=for-the-badge&logo=tailwindcss" />
 </div>
 
+<img width="1873" height="924" alt="TelaInicial" src="https://github.com/user-attachments/assets/4a382de6-ed27-4aeb-9177-827b087fb4f1" />
+
 ## 📱 Sobre o Projeto
 
 O **OndeTem** é um aplicativo web completo para locação de quadras esportivas, desenvolvido com React e TypeScript. O sistema permite que usuários encontrem, avaliem e reservem quadras próximas, enquanto administradores gerenciam suas quadras e horários de funcionamento.
@@ -67,7 +69,7 @@ npm run dev
 ```
 
 ### Acessar
-Abra [http://localhost:5173](http://localhost:5173) no navegador
+Abra [http://localhost:5173](http://localhost:3000) no navegador
 
 ## 🔥 Configuração do Firebase
 
