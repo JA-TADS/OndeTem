@@ -149,10 +149,15 @@ src/
 ```
 
 📱 Responsividade
+
 💻 Layout adaptado para desktop
+
 📱 Interface otimizada para mobile
+
 🎯 Navegação fluida e intuitiva
+
 🎯 Diferenciais do Projeto
+
 
 - Integração completa com mapa (geolocalização)
 - Sistema real de reservas
@@ -163,6 +168,10 @@ src/
 📌 Melhorias Futuras
 
 💳 Integração com gateway de pagamento (Stripe)
+
 📲 Versão mobile (React Native)
+
 🔔 Notificações em tempo real
+
 📊 Dashboard analítico para admins
+
