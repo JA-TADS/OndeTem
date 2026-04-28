@@ -149,20 +149,16 @@ src/
 ```
 
 📱 Responsividade
-
 💻 Layout adaptado para desktop
-
 📱 Interface otimizada para mobile
-
 🎯 Navegação fluida e intuitiva
-
 🎯 Diferenciais do Projeto
 
-Integração completa com mapa (geolocalização)
-Sistema real de reservas
-Comunicação em tempo real (chat)
-Arquitetura organizada com TypeScript
-Backend serverless (Firebase)
+- Integração completa com mapa (geolocalização)
+- Sistema real de reservas
+- Comunicação em tempo real (chat)
+- Arquitetura organizada com TypeScript
+- Backend serverless (Firebase)
 
 📌 Melhorias Futuras
 
